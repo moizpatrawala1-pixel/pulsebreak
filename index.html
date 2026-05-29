@@ -16,6 +16,10 @@
       <canvas id="gameCanvas" aria-label="Pulsebreak play field"></canvas>
 
       <section id="hud" class="hud" aria-live="polite">
+        <div class="hud-group stage-hud">
+          <span class="hud-label">Stage</span>
+          <strong id="stageText">1</strong>
+        </div>
         <div class="hud-group">
           <span class="hud-label">Score</span>
           <strong id="scoreText">0</strong>
@@ -43,6 +47,14 @@
 
           <div class="menu-stats" aria-label="Player stats">
             <div>
+              <span>Level</span>
+              <strong id="levelText">1</strong>
+            </div>
+            <div>
+              <span>XP</span>
+              <strong id="xpText">0</strong>
+            </div>
+            <div>
               <span>Best</span>
               <strong id="menuBest">0</strong>
             </div>
@@ -51,27 +63,97 @@
               <strong id="coinText">0</strong>
             </div>
             <div>
+              <span>Cores</span>
+              <strong id="coreText">0</strong>
+            </div>
+            <div>
               <span>Runs</span>
               <strong id="runText">0</strong>
             </div>
           </div>
 
-          <div class="action-stack">
-            <button id="playBtn" class="button primary" type="button">Play</button>
-            <button id="dailyBtn" class="button secondary" type="button">Daily Run</button>
+          <div class="tab-bar" role="tablist" aria-label="Pulsebreak systems">
+            <button class="tab-button active" data-tab="run" type="button">Run</button>
+            <button class="tab-button" data-tab="progress" type="button">Progress</button>
+            <button class="tab-button" data-tab="skills" type="button">Skills</button>
+            <button class="tab-button" data-tab="cosmetics" type="button">Style</button>
+            <button class="tab-button" data-tab="social" type="button">Social</button>
           </div>
 
-          <div class="menu-block">
-            <div class="block-title">Skins</div>
-            <div id="skinGrid" class="skin-grid"></div>
+          <div id="tabRun" class="tab-page active">
+            <div class="action-stack">
+              <button id="playBtn" class="button primary" type="button">Play</button>
+              <button id="dailyBtn" class="button secondary" type="button">Daily Run</button>
+              <button id="ghostBtn" class="button secondary" type="button">Ghost Run</button>
+            </div>
+
+            <div class="menu-block">
+              <div class="block-title">Zones</div>
+              <div id="zoneGrid" class="zone-grid"></div>
+            </div>
+
+            <div class="menu-block">
+              <div class="block-title">Missions</div>
+              <div id="missionList" class="mission-list"></div>
+            </div>
+
+            <div class="menu-block">
+              <div class="block-title">Today</div>
+              <div id="dailyPanel" class="daily-panel"></div>
+            </div>
           </div>
 
-          <div class="menu-block">
-            <div class="block-title">Missions</div>
-            <div id="missionList" class="mission-list"></div>
+          <div id="tabProgress" class="tab-page">
+            <div class="menu-block">
+              <div class="block-title">Account Rewards</div>
+              <div id="levelPanel" class="system-list"></div>
+            </div>
+            <div class="menu-block">
+              <div class="block-title">Achievements</div>
+              <div id="achievementList" class="system-list tall"></div>
+            </div>
+          </div>
+
+          <div id="tabSkills" class="tab-page">
+            <div class="menu-block">
+              <div class="block-title">Skill Tree</div>
+              <div id="skillTree" class="skill-tree"></div>
+            </div>
+          </div>
+
+          <div id="tabCosmetics" class="tab-page">
+            <div class="menu-block">
+              <div class="block-title">Skins</div>
+              <div id="skinGrid" class="skin-grid"></div>
+            </div>
+            <div class="menu-block">
+              <div class="block-title">Trails</div>
+              <div id="trailGrid" class="skin-grid"></div>
+            </div>
+            <div class="menu-block">
+              <div class="block-title">Boost Effects</div>
+              <div id="boostGrid" class="skin-grid"></div>
+            </div>
+            <div class="menu-block">
+              <div class="block-title">Menu Themes & Sound Packs</div>
+              <div id="extraCosmetics" class="system-list"></div>
+            </div>
+          </div>
+
+          <div id="tabSocial" class="tab-page">
+            <div class="menu-block">
+              <div class="block-title">Ghosts & Challenges</div>
+              <div id="socialPanel" class="system-list"></div>
+            </div>
+            <div class="challenge-row">
+              <input id="challengeInput" type="text" inputmode="text" autocomplete="off" placeholder="Paste friend challenge code">
+              <button id="challengeBtn" class="button secondary" type="button">Load</button>
+            </div>
           </div>
 
           <div class="settings-row">
+            <button id="luckyBtn" class="toggle-button" type="button">Lucky Spin</button>
+            <button id="doubleBtn" class="toggle-button" type="button">Double Last</button>
             <button id="soundBtn" class="toggle-button" type="button">Sound On</button>
             <button id="hapticsBtn" class="toggle-button" type="button">Haptics On</button>
           </div>
@@ -97,10 +179,15 @@
             <div><span>Coins</span><strong id="earnedCoins">0</strong></div>
             <div><span>Shards</span><strong id="finalShards">0</strong></div>
             <div><span>Combo</span><strong id="finalCombo">1x</strong></div>
+            <div><span>Stage</span><strong id="finalStage">1</strong></div>
+            <div><span>XP</span><strong id="finalXp">0</strong></div>
+            <div><span>Highlight</span><strong id="finalMoment">Run</strong></div>
           </div>
           <div class="action-stack">
             <button id="restartBtn" class="button primary" type="button">Run It Back</button>
             <button id="reviveBtn" class="button reward" type="button">Revive</button>
+            <button id="doubleRewardBtn" class="button reward" type="button">Double Rewards</button>
+            <button id="shareBtn" class="button secondary" type="button">Share Card</button>
             <button id="gameOverMenuBtn" class="button secondary" type="button">Menu</button>
           </div>
         </div>

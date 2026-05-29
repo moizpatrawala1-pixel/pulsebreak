@@ -5,16 +5,19 @@
 Use ads as optional momentum, not as punishment:
 
 - Rewarded revive after a run ends, once per run.
-- Interstitial after every fourth completed run, only from the game-over screen.
-- Optional rewarded coins can be added later from the skins screen.
+- Rewarded double rewards after a run ends.
+- Rewarded lucky spin from the daily screen.
+- Rewarded bonus mission claim after completing a mission.
+- Optional rewarded coins can be added later from the cosmetics screen.
 - Avoid banners during live gameplay because they make a reflex game feel cheap and increase accidental taps.
+- Do not ship forced interstitial ads. Pulsebreak should remain rewarded-only.
 
 ## Native iOS Path
 
 1. Replace `com.yourstudio.pulsebreak` in `capacitor.config.json`.
 2. Run `npm install`.
 3. Run `npm run ios:add`.
-4. Replace the placeholder AdMob unit IDs in `game.js` or set `window.PULSEBREAK_AD_UNITS` before the game loads.
+4. Replace the placeholder rewarded AdMob unit ID in `game.js` or set `window.PULSEBREAK_AD_UNITS.rewarded` before the game loads.
 5. Run `npm run ios:sync`.
 6. Run `npm run ios:open`, then use Xcode to set signing, icons, launch screen, and archive for App Store Connect.
 
@@ -32,7 +35,7 @@ Google says UMP is used to manage privacy choices, create user messages in AdMob
 ## App Store Review Notes
 
 - Do not submit this as a Kids Category app if you use third-party ads.
-- Keep ads age-appropriate and make interstitials clearly dismissible.
+- Keep ads age-appropriate and make rewarded prompts clearly optional.
 - Add a privacy policy URL in App Store Connect and inside the app before release.
 - In App Store privacy details, disclose the data collected by your app and third-party partners, including ad SDK data.
 - If you add paid coin packs, remove-ads purchases, or premium unlocks, use Apple In-App Purchase for digital content.
@@ -46,5 +49,5 @@ Apple's review guidelines cover privacy policy requirements, consent, ad behavio
 - Replace the SVG icon with full App Store icon sizes generated from the same artwork.
 - Add a privacy policy screen and link.
 - Add screenshots from real devices.
-- Add a short App Review note explaining that gameplay is offline and ads are only rewarded revive plus post-run interstitial.
+- Add a short App Review note explaining that gameplay is offline and ads are rewarded-only.
 - Test on at least one older iPhone and one current iPhone before upload.

@@ -1,4 +1,4 @@
-const CACHE = "pulsebreak-v2";
+const CACHE = "pulsebreak-v3";
 const FILES = [
   "./",
   "./index.html",
