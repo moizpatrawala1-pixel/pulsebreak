@@ -1,0 +1,9 @@
+{
+  "appId": "com.yourstudio.pulsebreak",
+  "appName": "Pulsebreak",
+  "webDir": ".",
+  "bundledWebRuntime": false,
+  "ios": {
+    "contentInset": "always"
+  }
+}

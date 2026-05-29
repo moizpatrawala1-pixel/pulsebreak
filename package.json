@@ -1,0 +1,20 @@
+{
+  "name": "pulsebreak",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Offline mobile arcade runner with App Store ad hooks.",
+  "scripts": {
+    "start": "python3 -m http.server 4173",
+    "ios:add": "npx cap add ios",
+    "ios:sync": "npx cap sync ios",
+    "ios:open": "npx cap open ios"
+  },
+  "dependencies": {
+    "@capacitor-community/admob": "latest",
+    "@capacitor/core": "latest",
+    "@capacitor/ios": "latest"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "latest"
+  }
+}
