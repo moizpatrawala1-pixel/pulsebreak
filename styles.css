@@ -51,6 +51,9 @@ button:disabled {
     radial-gradient(circle at 12% 14%, rgba(55, 244, 255, 0.18), transparent 24%),
     radial-gradient(circle at 90% 88%, rgba(255, 209, 102, 0.16), transparent 26%),
     linear-gradient(135deg, #07070c 0%, #101018 46%, #07070c 100%);
+  /* GPU layer for the whole app shell */
+  transform: translateZ(0);
+  contain: layout style;
 }
 
 #gameCanvas {
@@ -59,8 +62,13 @@ button:disabled {
   width: 100%;
   height: 100%;
   touch-action: none;
+  /* Promote canvas to its own compositor layer */
+  will-change: transform;
+  transform: translateZ(0);
+  contain: strict;
 }
 
+/* ── HUD ── */
 .hud {
   position: fixed;
   z-index: 4;
@@ -73,14 +81,15 @@ button:disabled {
   align-items: stretch;
   opacity: 0;
   pointer-events: none;
-  transform: translateY(-8px);
+  transform: translateY(-8px) translateZ(0);
   transition: opacity 180ms ease, transform 180ms ease;
+  will-change: opacity, transform;
 }
 
 .hud.visible {
   opacity: 1;
   pointer-events: auto;
-  transform: translateY(0);
+  transform: translateY(0) translateZ(0);
 }
 
 .hud-group,
@@ -88,8 +97,10 @@ button:disabled {
   min-height: 44px;
   border: 1px solid var(--line);
   background: rgba(8, 9, 15, 0.72);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
-  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
+  /* Reduced blur radius — backdrop-filter is a compositing bottleneck on mid-range Android */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .hud-group {
@@ -128,8 +139,9 @@ button:disabled {
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, var(--mint), var(--gold), var(--coral));
-  box-shadow: 0 0 22px rgba(255, 209, 102, 0.7);
+  box-shadow: 0 0 14px rgba(255, 209, 102, 0.6);
   transition: width 120ms linear;
+  will-change: width;
 }
 
 .icon-button {
@@ -137,8 +149,10 @@ button:disabled {
   place-items: center;
   min-width: 44px;
   font-weight: 900;
+  border-radius: 8px;
 }
 
+/* ── Screens ── */
 .screen {
   position: fixed;
   z-index: 8;
@@ -157,11 +171,16 @@ button:disabled {
   width: min(430px, 100%);
   max-height: min(720px, 94vh);
   overflow: auto;
+  /* Momentum scrolling on iOS */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: linear-gradient(180deg, rgba(18, 19, 29, 0.86), rgba(8, 9, 15, 0.88));
   box-shadow: var(--shadow);
-  backdrop-filter: blur(18px);
+  /* Reduced from 18px — main bottleneck on Snapdragon 600-series */
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .menu-panel {
@@ -189,7 +208,7 @@ button:disabled {
   width: 72px;
   height: 72px;
   border-radius: 8px;
-  box-shadow: 0 14px 42px rgba(55, 244, 255, 0.2);
+  box-shadow: 0 8px 24px rgba(55, 244, 255, 0.15);
 }
 
 .eyebrow,
@@ -219,6 +238,7 @@ h2 {
   overflow-wrap: anywhere;
 }
 
+/* ── Stats & result grid ── */
 .menu-stats,
 .result-grid {
   display: grid;
@@ -252,6 +272,7 @@ h2 {
   font-size: 1.25rem;
 }
 
+/* ── Tabs ── */
 .tab-bar {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -283,6 +304,7 @@ h2 {
   display: block;
 }
 
+/* ── Action buttons ── */
 .action-stack {
   display: grid;
   gap: 8px;
@@ -294,7 +316,9 @@ h2 {
   font-weight: 950;
   letter-spacing: 0;
   text-transform: uppercase;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.24);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
+  /* Explicit min touch target */
+  min-width: 44px;
 }
 
 .button.primary {
@@ -316,6 +340,7 @@ h2 {
   margin-top: 16px;
 }
 
+/* ── Cosmetic grids ── */
 .skin-grid,
 .zone-grid,
 .skill-tree {
@@ -335,6 +360,7 @@ h2 {
   grid-template-columns: 28px 1fr;
   gap: 8px;
   align-items: center;
+  /* 48dp minimum per Material/HIG — easier to tap on phone */
   min-height: 48px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.07);
@@ -347,7 +373,7 @@ h2 {
 .skill-button.selected,
 .cosmetic-row.selected {
   border-color: var(--skin);
-  box-shadow: inset 0 0 0 1px var(--skin), 0 0 28px rgba(55, 244, 255, 0.22);
+  box-shadow: inset 0 0 0 1px var(--skin), 0 0 18px rgba(55, 244, 255, 0.18);
 }
 
 .skin-button.locked,
@@ -364,7 +390,7 @@ h2 {
 
 .zone-button.selected {
   border-color: var(--zone);
-  box-shadow: inset 0 0 0 1px var(--zone), 0 0 24px rgba(55, 244, 255, 0.22);
+  box-shadow: inset 0 0 0 1px var(--zone), 0 0 18px rgba(55, 244, 255, 0.18);
 }
 
 .zone-button strong,
@@ -413,7 +439,7 @@ h2 {
   height: 28px;
   border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, white, var(--skin) 48%, #0d0e16 100%);
-  box-shadow: 0 0 22px var(--skin);
+  box-shadow: 0 0 14px var(--skin);
 }
 
 .skin-name,
@@ -434,6 +460,7 @@ h2 {
   overflow-wrap: anywhere;
 }
 
+/* ── System lists ── */
 .system-list {
   display: grid;
   gap: 8px;
@@ -456,6 +483,8 @@ h2 {
 .system-list.tall {
   max-height: 360px;
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding-right: 2px;
 }
 
@@ -481,6 +510,7 @@ h2 {
   white-space: nowrap;
 }
 
+/* ── Daily panel ── */
 .daily-panel {
   display: grid;
   grid-template-columns: 1fr;
@@ -519,6 +549,7 @@ h2 {
   color: var(--gold);
 }
 
+/* ── Challenge row ── */
 .challenge-row {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -539,6 +570,7 @@ h2 {
   outline: 0;
 }
 
+/* ── Missions ── */
 .mission-list {
   display: grid;
   gap: 8px;
@@ -549,7 +581,7 @@ h2 {
   grid-template-columns: 1fr auto;
   gap: 10px;
   align-items: center;
-  min-height: 42px;
+  min-height: 48px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.06);
@@ -568,12 +600,17 @@ h2 {
   overflow-wrap: anywhere;
 }
 
+.muted {
+  color: var(--muted);
+}
+
 .mission-reward {
   color: var(--gold);
   font-size: 0.78rem;
   font-weight: 950;
 }
 
+/* ── Settings ── */
 .settings-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -582,7 +619,7 @@ h2 {
 }
 
 .toggle-button {
-  min-height: 40px;
+  min-height: 44px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.07);
   color: var(--muted);
@@ -595,14 +632,15 @@ h2 {
   border-color: rgba(55, 244, 255, 0.52);
 }
 
+/* ── Boost button ── */
 .boost-button {
   position: fixed;
   z-index: 5;
   right: max(16px, env(safe-area-inset-right));
   bottom: max(18px, env(safe-area-inset-bottom));
   display: none;
-  width: 84px;
-  height: 84px;
+  width: 88px;
+  height: 88px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 50%;
   background: radial-gradient(circle at 32% 24%, #ffffff, var(--gold) 36%, var(--coral) 72%, #48111a 100%);
@@ -611,9 +649,12 @@ h2 {
   font-weight: 1000;
   letter-spacing: 0;
   text-transform: uppercase;
-  box-shadow: 0 0 34px rgba(255, 90, 114, 0.48), 0 18px 45px rgba(0, 0, 0, 0.42);
-  transform: scale(0.9);
+  /* Own compositor layer — avoids repaint with canvas */
+  will-change: transform;
+  transform: scale(0.9) translateZ(0);
   transition: transform 130ms ease, opacity 130ms ease;
+  /* Avoid layout jank from box-shadow changes on animation */
+  box-shadow: 0 0 28px rgba(255, 90, 114, 0.38), 0 12px 32px rgba(0, 0, 0, 0.36);
 }
 
 .boost-button.visible {
@@ -622,36 +663,46 @@ h2 {
 }
 
 .boost-button.ready {
-  transform: scale(1);
+  transform: scale(1) translateZ(0);
   animation: readyPulse 820ms ease-in-out infinite alternate;
 }
 
+/* ── Boost active glow — no box-shadow on canvas-adjacent elements ── */
+@keyframes readyPulse {
+  from { opacity: 0.88; }
+  to   { opacity: 1; }
+}
+
+/* ── Toast ── */
 .toast {
   position: fixed;
   z-index: 20;
   left: 50%;
-  bottom: calc(max(18px, env(safe-area-inset-bottom)) + 108px);
+  bottom: calc(max(18px, env(safe-area-inset-bottom)) + 116px);
   max-width: min(320px, calc(100vw - 32px));
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
   background: rgba(8, 9, 15, 0.88);
-  padding: 10px 12px;
+  padding: 10px 16px;
   color: var(--text);
   font-size: 0.85rem;
   font-weight: 850;
   text-align: center;
   opacity: 0;
   pointer-events: none;
-  transform: translate(-50%, 12px);
+  transform: translate(-50%, 12px) translateZ(0);
   transition: opacity 180ms ease, transform 180ms ease;
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  will-change: opacity, transform;
 }
 
 .toast.show {
   opacity: 1;
-  transform: translate(-50%, 0);
+  transform: translate(-50%, 0) translateZ(0);
 }
 
+/* ── Ad modal ── */
 .ad-modal {
   position: fixed;
   z-index: 30;
@@ -692,17 +743,10 @@ h2 {
   border-radius: inherit;
   background: linear-gradient(90deg, var(--cyan), var(--gold), var(--coral));
   transition: width 120ms linear;
+  will-change: width;
 }
 
-@keyframes readyPulse {
-  from {
-    box-shadow: 0 0 26px rgba(255, 90, 114, 0.38), 0 18px 45px rgba(0, 0, 0, 0.42);
-  }
-  to {
-    box-shadow: 0 0 48px rgba(255, 209, 102, 0.74), 0 18px 45px rgba(0, 0, 0, 0.42);
-  }
-}
-
+/* ── Responsive: small phones (≤430px) ── */
 @media (max-width: 430px) {
   .hud {
     grid-template-columns: 0.58fr 0.7fr 0.7fr 1fr 42px;
@@ -762,12 +806,21 @@ h2 {
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 
+  /* Bigger boost tap target on small screens */
   .boost-button {
-    width: 76px;
-    height: 76px;
+    width: 82px;
+    height: 82px;
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(16px, env(safe-area-inset-bottom));
+  }
+
+  /* Tighter action buttons */
+  .button {
+    min-height: 48px;
   }
 }
 
+/* ── Responsive: very small (≤360px) ── */
 @media (max-width: 360px) {
   h1 {
     font-size: 2.35rem;
@@ -776,8 +829,13 @@ h2 {
   h2 {
     font-size: 2.25rem;
   }
+
+  .hud-group strong {
+    font-size: 0.95rem;
+  }
 }
 
+/* ── Responsive: short screens ── */
 @media (max-height: 700px) {
   .panel {
     max-height: 96vh;
@@ -793,5 +851,18 @@ h2 {
 
   .button {
     min-height: 46px;
+  }
+}
+
+/* ── High-performance mode: reduce motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .boost-button.ready {
+    animation: none;
+    transform: scale(1) translateZ(0);
+  }
+
+  .hud,
+  .toast {
+    transition: none;
   }
 }
