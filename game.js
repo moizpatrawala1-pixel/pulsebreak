@@ -272,7 +272,7 @@
   const SOUND_PACKS   = makeCosmetics("sound",    ["Classic Pulse","Synthwave","Minimal Click","Glitch Pop","Quantum Bass","Boss Heavy","Calm Focus","Prestige Noise"]);
   const ACHIEVEMENTS  = buildAchievements();
 
-  const DEFAULT_SAVE = {
+ const DEFAULT_SAVE = {
     version:2,best:0,coins:0,xp:0,level:1,cores:0,fragments:0,
     streakTokens:0,ascensionMarks:0,runs:0,
     selectedZone:"neon_city",selectedSkin:"skin_001",selectedTrail:"trail_001",
@@ -285,6 +285,11 @@
     missionDay:"",missions:[],weeklyKey:"",weekly:[],
     loginDay:1,loginStreak:0,lastLogin:"",dailyClaimed:"",
     adDay:"",adCounts:{},lastRun:null,ghosts:{},challenge:null,
+    archive:[],
+    circuit:{ points:0, resetDate:"", milestones:[5000,12000,22000,35000] },
+    season:{ level:0, xp:0, hasSeason:false },
+    stageDeathCounts:{},
+    nearMissTutorialShown:false,
     stats:{
       runs:0,totalScore:0,totalShards:0,totalNearMisses:0,totalBoosts:0,
       hazardsBroken:0,bossesDefeated:0,stagesCleared:0,perfectStages:0,
