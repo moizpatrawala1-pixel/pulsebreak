@@ -1,20 +1,31 @@
+/* ============================================================
+   PULSEBREAK — Signal Ghost  |  styles.css
+   ============================================================ */
+
+/* ── Section 1: Reset and base ─────────────────────────────── */
+
 :root {
-  --ink: #07070c;
-  --ink-soft: rgba(13, 14, 22, 0.82);
-  --line: rgba(255, 255, 255, 0.16);
-  --text: #f7f7fb;
-  --muted: #9da3b7;
-  --cyan: #37f4ff;
-  --mint: #50f2a5;
-  --coral: #ff5a72;
-  --gold: #ffd166;
-  --violet: #a476ff;
-  --shadow: 0 20px 80px rgba(0, 0, 0, 0.46);
+  --ink:        #0A0B12;
+  --ink-soft:   rgba(10, 11, 18, 0.88);
+  --line:       rgba(255, 255, 255, 0.12);
+  --text:       #E8EDF5;
+  --muted:      #8896B0;
+  --ghost:      #E8EDF5;
+  --danger:     #E8344A;
+  --reward:     #FF8C42;
+  --structure:  #1A2340;
+  --wake:       #C8F0FF;
+  --boost:      #FF5500;
+  --perfect:    #A0FFB4;
+  --spine:      #B026FF;
+  --shadow:     0 24px 80px rgba(0, 0, 0, 0.56);
   color-scheme: dark;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "DM Mono", "IBM Plex Mono", "Courier New", ui-monospace, monospace;
 }
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
 }
@@ -31,11 +42,12 @@ body {
 
 button {
   border: 0;
-  border-radius: 8px;
+  border-radius: 6px;
   color: inherit;
   font: inherit;
   cursor: pointer;
   touch-action: manipulation;
+  background: none;
 }
 
 button:disabled {
@@ -47,11 +59,7 @@ button:disabled {
   position: fixed;
   inset: 0;
   min-width: 320px;
-  background:
-    radial-gradient(circle at 12% 14%, rgba(55, 244, 255, 0.18), transparent 24%),
-    radial-gradient(circle at 90% 88%, rgba(255, 209, 102, 0.16), transparent 26%),
-    linear-gradient(135deg, #07070c 0%, #101018 46%, #07070c 100%);
-  /* GPU layer for the whole app shell */
+  background: var(--ink);
   transform: translateZ(0);
   contain: layout style;
 }
@@ -62,13 +70,14 @@ button:disabled {
   width: 100%;
   height: 100%;
   touch-action: none;
-  /* Promote canvas to its own compositor layer */
   will-change: transform;
   transform: translateZ(0);
   contain: strict;
 }
 
-/* ── HUD ── */
+
+/* ── Section 2: HUD ─────────────────────────────────────────── */
+
 .hud {
   position: fixed;
   z-index: 4;
@@ -76,12 +85,12 @@ button:disabled {
   left: max(12px, env(safe-area-inset-left));
   right: max(12px, env(safe-area-inset-right));
   display: grid;
-  grid-template-columns: minmax(58px, 0.55fr) minmax(70px, 0.7fr) minmax(70px, 0.7fr) minmax(116px, 1fr) 44px;
-  gap: 8px;
+  grid-template-columns: 0.5fr 1fr 0.5fr 48px;
+  gap: 6px;
   align-items: stretch;
   opacity: 0;
   pointer-events: none;
-  transform: translateY(-8px) translateZ(0);
+  transform: translateY(-10px) translateZ(0);
   transition: opacity 180ms ease, transform 180ms ease;
   will-change: opacity, transform;
 }
@@ -92,67 +101,334 @@ button:disabled {
   transform: translateY(0) translateZ(0);
 }
 
-.hud-group,
-.icon-button {
-  min-height: 44px;
-  border: 1px solid var(--line);
-  background: rgba(8, 9, 15, 0.72);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
-  /* Reduced blur radius — backdrop-filter is a compositing bottleneck on mid-range Android */
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-
 .hud-group {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  min-height: 42px;
   padding: 7px 10px;
-  border-radius: 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(10, 11, 18, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.hud-group.score-group {
+  text-align: center;
+  border-color: rgba(232, 237, 245, 0.2);
 }
 
 .hud-group strong {
   font-size: 1.2rem;
   line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  transition: transform 80ms ease;
+  transform: translateZ(0);
+}
+
+.hud-group strong.pulse {
+  transform: scaleY(1.12) translateZ(0);
 }
 
 .hud-label {
   margin-bottom: 3px;
   color: var(--muted);
-  font-size: 0.64rem;
-  font-weight: 800;
-  letter-spacing: 0;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .energy-track {
-  overflow: hidden;
-  width: 100%;
-  height: 8px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
+  display: none;
 }
 
 #energyFill {
-  display: block;
-  width: 0%;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, var(--mint), var(--gold), var(--coral));
-  box-shadow: 0 0 14px rgba(255, 209, 102, 0.6);
-  transition: width 120ms linear;
-  will-change: width;
+  display: none;
 }
 
 .icon-button {
   display: grid;
   place-items: center;
-  min-width: 44px;
-  font-weight: 900;
-  border-radius: 8px;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(10, 11, 18, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  font-weight: 700;
 }
 
-/* ── Screens ── */
+
+/* ── Section 3: Streak display ──────────────────────────────── */
+
+#streakDisplay {
+  position: fixed;
+  z-index: 5;
+  left: 50%;
+  bottom: 28vh;
+  transform: translateX(-50%) translateZ(0);
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 200ms ease;
+  will-change: opacity, transform;
+}
+
+#streakDisplay.visible {
+  opacity: 1;
+}
+
+.streak-count {
+  font-size: 2.4rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+  color: var(--wake);
+  line-height: 1;
+  transform: translateZ(0);
+}
+
+.streak-label {
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+/* State modifier classes */
+#streakDisplay.streak-state-threading .streak-count {
+  color: var(--reward);
+}
+
+#streakDisplay.streak-state-razor .streak-count {
+  color: var(--reward);
+  font-size: 2.8rem;
+}
+
+#streakDisplay.streak-state-ghost-line .streak-count {
+  color: var(--wake);
+  font-size: 3.4rem;
+  text-shadow: 0 0 20px var(--wake);
+}
+
+#streakDisplay.streak-state-untouchable .streak-count {
+  color: #FFFFFF;
+  font-size: 3.8rem;
+  animation: streakPulse 600ms ease-in-out infinite alternate;
+}
+
+@keyframes streakPulse {
+  from { opacity: 0.7; }
+  to   { opacity: 1.0; }
+}
+
+
+/* ── Section 4: Combo counter ───────────────────────────────── */
+
+#comboDisplay {
+  position: fixed;
+  z-index: 5;
+  left: max(14px, env(safe-area-inset-left));
+  bottom: max(108px, calc(env(safe-area-inset-bottom) + 92px));
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 200ms ease, font-size 300ms ease, color 300ms ease;
+  transform: translateZ(0);
+}
+
+#comboDisplay.visible {
+  opacity: 1;
+}
+
+.combo-value {
+  display: inline-block;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  transform: translateZ(0);
+}
+
+/* Combo threshold modifier classes */
+.combo-value.combo-x1 {
+  font-size: 1.0rem;
+  color: var(--muted);
+  transition: font-size 300ms ease, color 300ms ease;
+}
+
+.combo-value.combo-x5 {
+  font-size: 1.2rem;
+  color: var(--reward);
+  transition: font-size 300ms ease, color 300ms ease;
+}
+
+.combo-value.combo-x10 {
+  font-size: 1.4rem;
+  color: var(--reward);
+  background: rgba(255, 140, 66, 0.12);
+  padding: 2px 8px;
+  border-radius: 4px;
+  transition: font-size 300ms ease, color 300ms ease;
+}
+
+.combo-value.combo-x20 {
+  font-size: 1.7rem;
+  color: #FFB060;
+  border: 1px solid rgba(255, 140, 66, 0.4);
+  padding: 3px 10px;
+  border-radius: 4px;
+  transition: font-size 300ms ease, color 300ms ease;
+}
+
+.combo-value.combo-x40 {
+  font-size: 2.1rem;
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  padding: 4px 12px;
+  border-radius: 4px;
+  animation: comboPulse 400ms ease-in-out infinite alternate;
+  transition: font-size 300ms ease, color 300ms ease;
+}
+
+@keyframes comboPulse {
+  from { transform: scale(1.0) translateZ(0); }
+  to   { transform: scale(1.08) translateZ(0); }
+}
+
+.combo-label {
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  display: block;
+  margin-top: 2px;
+}
+
+
+/* ── Section 5: Clutch Mode overlay ─────────────────────────── */
+
+#clutchOverlay {
+  position: fixed;
+  z-index: 3;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 400ms ease;
+}
+
+#app.clutch-active #clutchOverlay {
+  opacity: 1;
+}
+
+#clutchOverlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 3px solid var(--wake);
+  opacity: 0.35;
+  animation: clutchBreathe 1.2s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+#clutchOverlay::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 60%, rgba(200, 240, 255, 0.06) 100%);
+  pointer-events: none;
+}
+
+@keyframes clutchBreathe {
+  from { border-color: rgba(200, 240, 255, 0.25); }
+  to   { border-color: rgba(200, 240, 255, 0.55); }
+}
+
+.clutch-timer {
+  position: absolute;
+  top: max(64px, calc(env(safe-area-inset-top) + 54px));
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--wake);
+  opacity: 0.8;
+}
+
+
+/* ── Section 6: Boss fight HUD ──────────────────────────────── */
+
+.boss-hud {
+  display: none;
+  position: fixed;
+  z-index: 4;
+  left: 50%;
+  transform: translateX(-50%);
+  top: calc(max(10px, env(safe-area-inset-top)) + 54px);
+  text-align: center;
+  pointer-events: none;
+}
+
+.boss-hud.visible {
+  display: block;
+}
+
+.boss-name {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--danger);
+  margin-bottom: 4px;
+}
+
+.boss-phase-track {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+.boss-phase-pip {
+  width: 28px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+  transition: background 300ms ease;
+}
+
+.boss-phase-pip.active {
+  background: var(--danger);
+}
+
+.boss-phase-pip.done {
+  background: rgba(160, 255, 180, 0.5);
+}
+
+.boss-weakpoint-flash {
+  position: fixed;
+  z-index: 4;
+  inset: 0;
+  pointer-events: none;
+  background: transparent;
+  opacity: 0;
+}
+
+.boss-weakpoint-flash.fire {
+  animation: weakpointFlash 200ms ease-out forwards;
+}
+
+@keyframes weakpointFlash {
+  0%   { opacity: 0; background: transparent; }
+  30%  { opacity: 1; background: rgba(160, 255, 180, 0.18); }
+  100% { opacity: 0; background: transparent; }
+}
+
+
+/* ── Section 7: Screens ─────────────────────────────────────── */
+
 .screen {
   position: fixed;
   z-index: 8;
@@ -160,7 +436,11 @@ button:disabled {
   display: none;
   align-items: center;
   justify-content: center;
-  padding: max(18px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  padding:
+    max(18px, env(safe-area-inset-top))
+    max(16px, env(safe-area-inset-right))
+    max(18px, env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
 }
 
 .screen.active {
@@ -168,19 +448,17 @@ button:disabled {
 }
 
 .panel {
-  width: min(430px, 100%);
+  width: min(420px, 100%);
   max-height: min(720px, 94vh);
   overflow: auto;
-  /* Momentum scrolling on iOS */
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: linear-gradient(180deg, rgba(18, 19, 29, 0.86), rgba(8, 9, 15, 0.88));
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(18, 19, 32, 0.90), rgba(10, 11, 18, 0.94));
   box-shadow: var(--shadow);
-  /* Reduced from 18px — main bottleneck on Snapdragon 600-series */
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .menu-panel {
@@ -188,16 +466,638 @@ button:disabled {
 }
 
 .tight-panel {
-  padding: 22px;
+  padding: 24px;
+  text-align: center;
+  overflow: hidden;
+}
+
+
+/* ── Section 8: Modifier selection screen ───────────────────── */
+
+#modifierScreen {
+  position: fixed;
+  z-index: 9;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(10, 11, 18, 0.96);
+  gap: 16px;
+}
+
+#modifierScreen.active {
+  display: flex;
+}
+
+.modifier-header {
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.modifier-header h3 {
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+
+.modifier-header p {
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0;
+  color: var(--text);
+}
+
+.modifier-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  width: min(420px, 100%);
+}
+
+.modifier-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(26, 35, 64, 0.4);
+  padding: 14px 12px;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.modifier-card:hover,
+.modifier-card:focus {
+  background: rgba(26, 35, 64, 0.7);
+  border-color: rgba(232, 237, 245, 0.25);
+  outline: none;
+}
+
+.modifier-card.selected {
+  border-color: var(--ghost);
+  background: rgba(232, 237, 245, 0.08);
+}
+
+.modifier-card.buff {
+  border-color: rgba(160, 255, 180, 0.2);
+}
+
+.modifier-card.curse {
+  border-color: rgba(232, 52, 74, 0.2);
+}
+
+.modifier-type-tag {
+  display: inline-block;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border-radius: 999px;
+  margin-bottom: 2px;
+}
+
+.modifier-card.buff .modifier-type-tag {
+  background: rgba(160, 255, 180, 0.15);
+  color: var(--perfect);
+}
+
+.modifier-card.curse .modifier-type-tag {
+  background: rgba(232, 52, 74, 0.15);
+  color: var(--danger);
+}
+
+.modifier-card.shift .modifier-type-tag {
+  background: rgba(232, 237, 245, 0.1);
+  color: var(--muted);
+}
+
+.modifier-name {
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.modifier-desc {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-weight: 600;
+  line-height: 1.4;
+  flex: 1;
+}
+
+.modifier-footer {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.modifier-reroll {
+  font-size: 0.68rem;
+  color: var(--muted);
+  cursor: pointer;
+  text-decoration: underline;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+}
+
+.modifier-confirm {
+  display: grid;
+  margin-top: 4px;
+  width: min(420px, 100%);
+}
+
+
+/* ── Section 9: End-run screen (dopamine sequence) ──────────── */
+
+.result-sequence {
+  /* inherits .result-grid grid layout */
+}
+
+.result-sequence > * {
+  opacity: 0;
+  transform: translateY(8px) translateZ(0);
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+
+.result-sequence > *.revealed {
+  opacity: 1;
+  transform: translateY(0) translateZ(0);
+}
+
+.so-close {
+  display: none;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--reward);
+  letter-spacing: 0.02em;
+  margin-top: 6px;
+  text-align: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(255, 140, 66, 0.12);
+  border: 1px solid rgba(255, 140, 66, 0.25);
+}
+
+.so-close.show {
+  display: block;
+}
+
+.so-close.critical {
+  color: #FFFFFF;
+  background: rgba(255, 85, 0, 0.18);
+  border-color: rgba(255, 85, 0, 0.4);
+}
+
+.personal-best-flag {
+  display: none;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--perfect);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+.personal-best-flag.show {
+  display: block;
+}
+
+.coins-animation-stage {
+  position: relative;
+  height: 40px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.coin-fly {
+  position: absolute;
+  bottom: 0;
+  font-size: 0.8rem;
+  color: var(--reward);
+  animation: coinFly 800ms ease-out forwards;
+}
+
+@keyframes coinFly {
+  0%   { transform: translateY(0);     opacity: 1; }
+  100% { transform: translateY(-36px); opacity: 0; }
+}
+
+.result-streak-highlight {
+  font-size: 0.72rem;
+  color: var(--wake);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+}
+
+.button.primary.result-runback-cta {
+  animation: ctaPulse 600ms ease-out;
+}
+
+@keyframes ctaPulse {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+
+/* ── Section 10: Signal Archive ─────────────────────────────── */
+
+.archive-panel {
+  display: grid;
+  gap: 6px;
+}
+
+.archive-entry {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(26, 35, 64, 0.3);
+  padding: 8px 10px;
+  transition: border-color 200ms ease;
+}
+
+.archive-entry.top-three {
+  border-color: rgba(160, 255, 180, 0.35);
+}
+
+.archive-entry.new {
+  border-color: rgba(232, 237, 245, 0.4);
+  animation: archiveNewPop 400ms ease-out;
+}
+
+@keyframes archiveNewPop {
+  0%   { transform: scale(0.96) translateZ(0); opacity: 0; }
+  100% { transform: scale(1)    translateZ(0); opacity: 1; }
+}
+
+.archive-rank {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--muted);
+  text-align: center;
+  min-width: 20px;
+}
+
+.archive-rank.gold {
+  color: var(--reward);
+}
+
+.archive-run-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.archive-run-score {
+  font-size: 1.0rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.archive-run-meta {
+  font-size: 0.66rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.archive-run-highlight {
+  font-size: 0.64rem;
+  color: var(--wake);
+  font-weight: 700;
+}
+
+
+/* ── Section 11: Circuit progress bar ───────────────────────── */
+
+.circuit-panel {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(26, 35, 64, 0.3);
+  padding: 10px 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.circuit-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.circuit-title {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.circuit-points {
+  font-size: 0.72rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--reward);
+}
+
+.circuit-track {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.circuit-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--reward), var(--boost));
+  transition: width 600ms ease;
+  will-change: width;
+}
+
+.circuit-milestones {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+
+.circuit-milestone {
+  font-size: 0.58rem;
+  color: var(--muted);
   text-align: center;
 }
 
+.circuit-milestone.reached {
+  color: var(--perfect);
+}
+
+
+/* ── Section 12: Season track ───────────────────────────────── */
+
+.season-track-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  padding-bottom: 6px;
+}
+
+.season-track {
+  display: flex;
+  gap: 0;
+  align-items: center;
+  min-width: max-content;
+  padding: 0 4px;
+}
+
+.season-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 52px;
+}
+
+.season-node-pip {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  background: var(--structure);
+  display: grid;
+  place-items: center;
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: var(--muted);
+  transition: background 200ms ease, border-color 200ms ease;
+  position: relative;
+  z-index: 1;
+}
+
+.season-node.unlocked .season-node-pip {
+  border-color: rgba(232, 237, 245, 0.4);
+  color: var(--text);
+}
+
+.season-node.claimed .season-node-pip {
+  background: var(--perfect);
+  border-color: var(--perfect);
+  color: var(--ink);
+}
+
+.season-node.milestone .season-node-pip {
+  width: 40px;
+  height: 40px;
+  font-size: 0.72rem;
+  border-width: 2px;
+}
+
+.season-node.milestone.unlocked .season-node-pip {
+  border-color: var(--reward);
+  background: rgba(255, 140, 66, 0.15);
+}
+
+.season-node-label {
+  font-size: 0.56rem;
+  color: var(--muted);
+  text-align: center;
+  max-width: 50px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.season-connector {
+  flex: 1;
+  height: 2px;
+  background: var(--line);
+  min-width: 8px;
+}
+
+.season-connector.filled {
+  background: rgba(160, 255, 180, 0.4);
+}
+
+
+/* ── Section 13: Skill tree archetypes ──────────────────────── */
+
+.skill-archetype-section {
+  margin-bottom: 16px;
+}
+
+.skill-archetype-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+
+.skill-archetype-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.skill-archetype-name {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.skill-archetype-desc {
+  font-size: 0.66rem;
+  color: var(--muted);
+  font-weight: 600;
+  flex: 1;
+}
+
+/* Archetype color modifiers */
+.archetype-ghost .skill-archetype-dot  { background: var(--wake); }
+.archetype-ghost .skill-archetype-name { color: var(--wake); }
+
+.archetype-breaker .skill-archetype-dot  { background: var(--boost); }
+.archetype-breaker .skill-archetype-name { color: var(--boost); }
+
+.archetype-surgeon .skill-archetype-dot  { background: var(--perfect); }
+.archetype-surgeon .skill-archetype-name { color: var(--perfect); }
+
+.skill-tree {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.skill-button {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 48px;
+  border: 1px solid var(--line);
+  border-left: 3px solid transparent;
+  border-radius: 6px;
+  background: rgba(26, 35, 64, 0.3);
+  padding: 8px 10px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.skill-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.skill-button.ghost-skill   { border-left-color: var(--wake); }
+.skill-button.breaker-skill { border-left-color: var(--boost); }
+.skill-button.surgeon-skill { border-left-color: var(--perfect); }
+
+.skill-button.selected {
+  background: rgba(232, 237, 245, 0.07);
+}
+
+.skill-button.locked {
+  opacity: 0.5;
+}
+
+
+/* ── Section 14: Zone cards ─────────────────────────────────── */
+
+.zone-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.zone-button {
+  --zone-color: var(--wake);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 64px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(26, 35, 64, 0.3);
+  padding: 10px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.zone-button.selected {
+  border-color: var(--zone-color);
+  box-shadow: inset 0 0 0 1px var(--zone-color), 0 0 18px rgba(200, 240, 255, 0.12);
+}
+
+.zone-button.locked {
+  opacity: 0.5;
+}
+
+.zone-status-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.zone-mechanic-tag {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--muted);
+}
+
+.zone-mechanic-tag.active {
+  background: rgba(200, 240, 255, 0.12);
+  color: var(--wake);
+}
+
+
+/* ── Section 15: Brand, stats, tabs, buttons, cosmetics,
+                 missions, daily, challenge, settings ──────── */
+
+/* Brand row */
 .brand-row {
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
+  grid-template-columns: 64px minmax(0, 1fr);
   gap: 14px;
   align-items: center;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
 
 .brand-row > div {
@@ -205,45 +1105,56 @@ button:disabled {
 }
 
 .app-mark {
-  width: 72px;
-  height: 72px;
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(55, 244, 255, 0.15);
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(200, 240, 255, 0.12);
 }
 
-.eyebrow,
+.eyebrow {
+  margin: 0 0 4px;
+  color: var(--reward);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .block-title {
   margin: 0 0 6px;
-  color: var(--gold);
-  font-size: 0.68rem;
-  font-weight: 900;
-  letter-spacing: 0;
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 h1,
 h2 {
   margin: 0;
-  line-height: 0.92;
-  letter-spacing: 0;
+  line-height: 0.9;
+  letter-spacing: -0.03em;
 }
 
 h1 {
-  font-size: 3.35rem;
+  font-size: 3.2rem;
+  font-weight: 800;
   overflow-wrap: anywhere;
 }
 
 h2 {
-  font-size: 3.35rem;
+  font-size: 3.0rem;
+  font-weight: 800;
   overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
 }
 
-/* ── Stats & result grid ── */
+/* Stats and result grid */
 .menu-stats,
 .result-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  gap: 7px;
   margin-bottom: 14px;
 }
 
@@ -251,48 +1162,56 @@ h2 {
 .result-grid div {
   min-width: 0;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
-  padding: 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 9px;
 }
 
 .menu-stats span,
 .result-grid span {
   display: block;
   color: var(--muted);
-  font-size: 0.7rem;
-  font-weight: 800;
+  font-size: 0.58rem;
+  font-weight: 700;
   text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 2px;
 }
 
 .menu-stats strong,
 .result-grid strong {
   display: block;
   overflow-wrap: anywhere;
-  font-size: 1.25rem;
+  font-size: 1.1rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
 
-/* ── Tabs ── */
+/* Tabs */
 .tab-bar {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 6px;
+  gap: 5px;
   margin-bottom: 12px;
 }
 
 .tab-button {
-  min-height: 36px;
+  min-height: 34px;
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
   color: var(--muted);
-  font-size: 0.72rem;
-  font-weight: 900;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
+  transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
 }
 
 .tab-button.active {
-  border-color: rgba(55, 244, 255, 0.62);
-  background: rgba(55, 244, 255, 0.14);
+  border-color: rgba(200, 240, 255, 0.45);
+  background: rgba(200, 240, 255, 0.10);
   color: var(--text);
 }
 
@@ -304,180 +1223,110 @@ h2 {
   display: block;
 }
 
-/* ── Action buttons ── */
+/* Action buttons */
 .action-stack {
   display: grid;
-  gap: 8px;
+  gap: 7px;
 }
 
 .button {
   min-height: 50px;
   padding: 0 18px;
-  font-weight: 950;
-  letter-spacing: 0;
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
+  border-radius: 6px;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
-  /* Explicit min touch target */
   min-width: 44px;
+  transform: translateZ(0);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.button:active:not(:disabled) {
+  transform: scale(0.97) translateZ(0);
 }
 
 .button.primary {
-  background: linear-gradient(135deg, var(--cyan), var(--mint));
-  color: #071013;
+  background: linear-gradient(135deg, var(--ghost), rgba(200, 240, 255, 0.85));
+  color: var(--ink);
 }
 
 .button.secondary {
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .button.reward {
-  background: linear-gradient(135deg, var(--gold), var(--coral));
-  color: #18080c;
+  background: linear-gradient(135deg, var(--reward), var(--boost));
+  color: var(--ink);
 }
 
+/* Menu block */
 .menu-block {
-  margin-top: 16px;
+  margin-top: 15px;
 }
 
-/* ── Cosmetic grids ── */
-.skin-grid,
-.zone-grid,
-.skill-tree {
+/* Skin grid */
+.skin-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 7px;
 }
 
-.skin-button,
-.zone-button,
-.skill-button,
-.skill-node,
-.cosmetic-row,
-.system-item {
+.skin-button {
   position: relative;
   display: grid;
   grid-template-columns: 28px 1fr;
   gap: 8px;
   align-items: center;
-  /* 48dp minimum per Material/HIG — easier to tap on phone */
   min-height: 48px;
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.07);
+  border-radius: 6px;
+  background: rgba(26, 35, 64, 0.3);
   padding: 8px;
   text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease;
 }
 
-.skin-button.selected,
-.zone-button.selected,
-.skill-button.selected,
-.cosmetic-row.selected {
-  border-color: var(--skin);
-  box-shadow: inset 0 0 0 1px var(--skin), 0 0 18px rgba(55, 244, 255, 0.18);
+.skin-button.selected {
+  border-color: var(--ghost);
+  box-shadow: inset 0 0 0 1px var(--ghost), 0 0 16px rgba(232, 237, 245, 0.12);
 }
 
-.skin-button.locked,
-.zone-button.locked,
-.skill-button.locked,
-.skill-node:disabled {
-  opacity: 0.62;
+.skin-button.locked {
+  opacity: 0.5;
 }
 
-.zone-button {
-  grid-template-columns: 1fr;
-  border-color: var(--zone);
-}
-
-.zone-button.selected {
-  border-color: var(--zone);
-  box-shadow: inset 0 0 0 1px var(--zone), 0 0 18px rgba(55, 244, 255, 0.18);
-}
-
-.zone-button strong,
-.skill-node strong,
-.system-item strong {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.zone-button span,
-.skill-node span,
-.skill-node em,
-.skill-node b,
-.system-item span {
-  color: var(--muted);
-  font-size: 0.72rem;
-  font-style: normal;
-  font-weight: 850;
-}
-
-.skill-node {
-  grid-template-columns: 1fr auto;
-}
-
-.skill-node span {
-  grid-column: 1 / -1;
-  color: var(--gold);
-  text-transform: uppercase;
-}
-
-.skill-node em {
-  grid-column: 1 / -1;
-}
-
-.skill-node b {
-  align-self: center;
-  color: var(--mint);
-  white-space: nowrap;
-}
-
-.skin-dot,
-.zone-dot,
-.skill-dot {
+.skin-dot {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, white, var(--skin) 48%, #0d0e16 100%);
-  box-shadow: 0 0 14px var(--skin);
+  background: radial-gradient(circle at 35% 30%, white, var(--ghost) 48%, var(--ink) 100%);
 }
 
-.skin-name,
-.system-name {
+.skin-name {
   display: block;
   overflow: hidden;
-  font-weight: 900;
+  font-size: 0.8rem;
+  font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.skin-cost,
-.system-copy {
+.skin-cost {
   display: block;
   color: var(--muted);
-  font-size: 0.72rem;
-  font-weight: 800;
+  font-size: 0.66rem;
+  font-weight: 700;
   overflow-wrap: anywhere;
 }
 
-/* ── System lists ── */
+/* System lists */
 .system-list {
   display: grid;
-  gap: 8px;
-}
-
-.meter {
-  overflow: hidden;
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-}
-
-.meter span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, var(--cyan), var(--mint), var(--gold));
+  gap: 7px;
 }
 
 .system-list.tall {
@@ -489,67 +1338,147 @@ h2 {
 }
 
 .system-item {
+  display: grid;
   grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+  min-height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(26, 35, 64, 0.3);
+  padding: 9px 10px;
+  cursor: pointer;
 }
 
 .system-item.claimable {
-  border-color: rgba(255, 209, 102, 0.62);
+  border-color: rgba(255, 140, 66, 0.5);
 }
 
 .system-item.done {
-  border-color: rgba(80, 242, 165, 0.62);
+  border-color: rgba(160, 255, 180, 0.5);
+}
+
+.system-name {
+  display: block;
+  overflow: hidden;
+  font-size: 0.84rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.system-copy {
+  display: block;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .system-pill {
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.09);
-  padding: 5px 8px;
-  color: var(--gold);
-  font-size: 0.72rem;
-  font-weight: 950;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 4px 8px;
+  color: var(--reward);
+  font-size: 0.66rem;
+  font-weight: 800;
   white-space: nowrap;
 }
 
-/* ── Daily panel ── */
+.meter {
+  overflow: hidden;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--wake), var(--perfect), var(--reward));
+}
+
+/* Mission list */
+.mission-list {
+  display: grid;
+  gap: 7px;
+}
+
+.mission-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 9px;
+  align-items: center;
+  min-height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(26, 35, 64, 0.3);
+  padding: 9px 10px;
+}
+
+.mission-item.done {
+  border-color: rgba(160, 255, 180, 0.5);
+}
+
+.mission-copy {
+  min-width: 0;
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.mission-reward {
+  color: var(--reward);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+/* Daily panel */
 .daily-panel {
   display: grid;
-  grid-template-columns: 1fr;
   gap: 8px;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  background: rgba(26, 35, 64, 0.3);
   padding: 10px;
 }
 
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(10, minmax(0, 1fr));
-  gap: 4px;
+  gap: 3px;
 }
 
 .calendar-cell {
   display: grid;
   place-items: center;
-  min-height: 24px;
+  min-height: 22px;
   border: 1px solid var(--line);
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
   color: var(--muted);
-  font-size: 0.68rem;
-  font-weight: 900;
+  font-size: 0.62rem;
+  font-weight: 700;
 }
 
 .calendar-cell.claimed {
-  color: #071013;
-  background: var(--mint);
+  color: var(--ink);
+  background: var(--perfect);
+  border-color: var(--perfect);
 }
 
 .calendar-cell.today {
-  border-color: var(--gold);
-  color: var(--gold);
+  border-color: var(--reward);
+  color: var(--reward);
 }
 
-/* ── Challenge row ── */
+/* Challenge row */
 .challenge-row {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -559,102 +1488,93 @@ h2 {
 
 .challenge-row input {
   min-width: 0;
-  min-height: 44px;
+  min-height: 42px;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.07);
+  border-radius: 6px;
+  background: rgba(26, 35, 64, 0.4);
   color: var(--text);
   font: inherit;
-  font-size: 0.84rem;
-  padding: 0 10px;
-  outline: 0;
-}
-
-/* ── Missions ── */
-.mission-list {
-  display: grid;
-  gap: 8px;
-}
-
-.mission-item {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 10px;
-  align-items: center;
-  min-height: 48px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
-  padding: 9px 10px;
-}
-
-.mission-item.done {
-  border-color: rgba(80, 242, 165, 0.62);
-}
-
-.mission-copy {
-  min-width: 0;
-  color: var(--text);
   font-size: 0.82rem;
-  font-weight: 850;
-  overflow-wrap: anywhere;
+  padding: 0 10px;
+  outline: none;
+  transition: border-color 150ms ease;
 }
 
-.muted {
+.challenge-row input:focus {
+  border-color: rgba(200, 240, 255, 0.4);
+}
+
+.challenge-row input::placeholder {
   color: var(--muted);
+  font-size: 0.76rem;
 }
 
-.mission-reward {
-  color: var(--gold);
-  font-size: 0.78rem;
-  font-weight: 950;
-}
-
-/* ── Settings ── */
+/* Settings */
 .settings-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-top: 16px;
+  gap: 7px;
+  margin-top: 15px;
 }
 
 .toggle-button {
-  min-height: 44px;
+  min-height: 42px;
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.07);
+  border-radius: 6px;
+  background: rgba(26, 35, 64, 0.3);
   color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 850;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition: border-color 150ms ease, color 150ms ease, background 150ms ease;
 }
 
 .toggle-button.on {
   color: var(--text);
-  border-color: rgba(55, 244, 255, 0.52);
+  border-color: rgba(200, 240, 255, 0.45);
+  background: rgba(200, 240, 255, 0.08);
 }
 
-/* ── Boost button ── */
+/* Cosmetics grid extras */
+.cosmetic-row {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 8px;
+  align-items: center;
+  min-height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(26, 35, 64, 0.3);
+  padding: 8px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.cosmetic-row.selected {
+  border-color: var(--ghost);
+}
+
+
+/* ── Section 16: Boost button ───────────────────────────────── */
+
 .boost-button {
   position: fixed;
   z-index: 5;
   right: max(16px, env(safe-area-inset-right));
   bottom: max(18px, env(safe-area-inset-bottom));
   display: none;
-  width: 88px;
-  height: 88px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  width: 84px;
+  height: 84px;
+  border: none;
   border-radius: 50%;
-  background: radial-gradient(circle at 32% 24%, #ffffff, var(--gold) 36%, var(--coral) 72%, #48111a 100%);
-  color: #17070b;
-  font-size: 0.74rem;
-  font-weight: 1000;
-  letter-spacing: 0;
-  text-transform: uppercase;
-  /* Own compositor layer — avoids repaint with canvas */
+  background: var(--structure);
+  color: var(--text);
+  overflow: visible;
   will-change: transform;
-  transform: scale(0.9) translateZ(0);
+  transform: scale(0.92) translateZ(0);
   transition: transform 130ms ease, opacity 130ms ease;
-  /* Avoid layout jank from box-shadow changes on animation */
-  box-shadow: 0 0 28px rgba(255, 90, 114, 0.38), 0 12px 32px rgba(0, 0, 0, 0.36);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
 }
 
 .boost-button.visible {
@@ -663,37 +1583,78 @@ h2 {
 }
 
 .boost-button.ready {
-  transform: scale(1) translateZ(0);
-  animation: readyPulse 820ms ease-in-out infinite alternate;
+  animation: boostSnap 100ms ease forwards;
 }
 
-/* ── Boost active glow — no box-shadow on canvas-adjacent elements ── */
-@keyframes readyPulse {
-  from { opacity: 0.88; }
-  to   { opacity: 1; }
+@keyframes boostSnap {
+  0%   { transform: scale(1)    translateZ(0); }
+  50%  { transform: scale(1.15) translateZ(0); }
+  100% { transform: scale(1)    translateZ(0); }
 }
 
-/* ── Toast ── */
+.boost-button.ready #boostRingFill {
+  stroke: var(--boost);
+}
+
+#boostRing {
+  position: absolute;
+  inset: -6px;
+  width: calc(100% + 12px);
+  height: calc(100% + 12px);
+  pointer-events: none;
+}
+
+#boostRingTrack {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.1);
+  stroke-width: 4;
+}
+
+#boostRingFill {
+  fill: none;
+  stroke: var(--reward);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 0 999;
+  transform: rotate(-90deg);
+  transform-origin: center;
+  transform-box: fill-box;
+  transition: stroke-dasharray 120ms linear;
+}
+
+.boost-button-inner {
+  z-index: 1;
+  position: relative;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+
+/* ── Section 17: Toast and Ad modal ─────────────────────────── */
+
 .toast {
   position: fixed;
   z-index: 20;
   left: 50%;
-  bottom: calc(max(18px, env(safe-area-inset-bottom)) + 116px);
+  bottom: calc(max(18px, env(safe-area-inset-bottom)) + 100px);
   max-width: min(320px, calc(100vw - 32px));
   border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 8px;
-  background: rgba(8, 9, 15, 0.88);
+  border-radius: 6px;
+  background: rgba(10, 11, 18, 0.92);
   padding: 10px 16px;
   color: var(--text);
-  font-size: 0.85rem;
-  font-weight: 850;
+  font-size: 0.82rem;
+  font-weight: 700;
   text-align: center;
   opacity: 0;
   pointer-events: none;
   transform: translate(-50%, 12px) translateZ(0);
   transition: opacity 180ms ease, transform 180ms ease;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   will-change: opacity, transform;
 }
 
@@ -702,7 +1663,6 @@ h2 {
   transform: translate(-50%, 0) translateZ(0);
 }
 
-/* ── Ad modal ── */
 .ad-modal {
   position: fixed;
   z-index: 30;
@@ -710,7 +1670,9 @@ h2 {
   display: none;
   place-items: center;
   padding: 20px;
-  background: rgba(2, 2, 6, 0.72);
+  background: rgba(4, 4, 10, 0.80);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 .ad-modal.active {
@@ -720,9 +1682,9 @@ h2 {
 .ad-box {
   width: min(360px, 100%);
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: linear-gradient(180deg, rgba(18, 19, 29, 0.96), rgba(7, 7, 12, 0.96));
-  padding: 22px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(18, 19, 32, 0.96), rgba(10, 11, 18, 0.98));
+  padding: 24px;
   text-align: center;
   box-shadow: var(--shadow);
 }
@@ -730,10 +1692,10 @@ h2 {
 .ad-meter {
   overflow: hidden;
   width: 100%;
-  height: 10px;
-  margin: 18px 0;
+  height: 8px;
+  margin: 16px 0;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 #adMeterFill {
@@ -741,58 +1703,43 @@ h2 {
   width: 0%;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--cyan), var(--gold), var(--coral));
+  background: linear-gradient(90deg, var(--wake), var(--reward));
   transition: width 120ms linear;
   will-change: width;
 }
 
-/* ── Responsive: small phones (≤430px) ── */
+
+/* ── Section 18: Responsive breakpoints ─────────────────────── */
+
 @media (max-width: 430px) {
   .hud {
-    grid-template-columns: 0.58fr 0.7fr 0.7fr 1fr 42px;
+    grid-template-columns: 0.5fr 1fr 0.5fr 44px;
     gap: 4px;
   }
 
   .hud-group {
-    padding: 7px 8px;
-  }
-
-  .hud-group.compact {
-    min-width: 0;
+    padding: 6px 7px;
   }
 
   .hud-group strong {
     font-size: 1.05rem;
   }
 
+  h1 {
+    font-size: 2.6rem;
+  }
+
+  h2 {
+    font-size: 2.5rem;
+  }
+
   .menu-panel {
     padding: 14px;
   }
 
-  .brand-row {
-    grid-template-columns: 58px minmax(0, 1fr);
-  }
-
-  .app-mark {
-    width: 58px;
-    height: 58px;
-  }
-
-  h1 {
-    font-size: 2.45rem;
-  }
-
-  h2 {
-    font-size: 2.6rem;
-  }
-
-  .tab-bar {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-
   .tab-button {
-    font-size: 0.62rem;
-    min-height: 34px;
+    font-size: 0.58rem;
+    min-height: 32px;
     padding: 0 3px;
   }
 
@@ -802,51 +1749,51 @@ h2 {
     grid-template-columns: 1fr;
   }
 
-  .calendar-grid {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-
-  /* Bigger boost tap target on small screens */
   .boost-button {
-    width: 82px;
-    height: 82px;
+    width: 76px;
+    height: 76px;
     right: max(12px, env(safe-area-inset-right));
     bottom: max(16px, env(safe-area-inset-bottom));
   }
 
-  /* Tighter action buttons */
+  .modifier-cards {
+    grid-template-columns: 1fr;
+  }
+
   .button {
     min-height: 48px;
   }
 }
 
-/* ── Responsive: very small (≤360px) ── */
 @media (max-width: 360px) {
   h1 {
-    font-size: 2.35rem;
+    font-size: 2.2rem;
   }
 
   h2 {
-    font-size: 2.25rem;
+    font-size: 2.1rem;
   }
 
   .hud-group strong {
-    font-size: 0.95rem;
+    font-size: 0.92rem;
+  }
+
+  .tab-button {
+    font-size: 0.54rem;
   }
 }
 
-/* ── Responsive: short screens ── */
 @media (max-height: 700px) {
   .panel {
     max-height: 96vh;
   }
 
   .brand-row {
-    margin-bottom: 12px;
+    margin-bottom: 10px;
   }
 
   .menu-block {
-    margin-top: 12px;
+    margin-top: 11px;
   }
 
   .button {
@@ -854,7 +1801,6 @@ h2 {
   }
 }
 
-/* ── High-performance mode: reduce motion ── */
 @media (prefers-reduced-motion: reduce) {
   .boost-button.ready {
     animation: none;
@@ -863,6 +1809,30 @@ h2 {
 
   .hud,
   .toast {
+    transition: none;
+  }
+
+  #clutchOverlay::before {
+    animation: none;
+  }
+
+  #streakDisplay.streak-state-untouchable .streak-count {
+    animation: none;
+  }
+
+  .combo-value.combo-x40 {
+    animation: none;
+  }
+
+  .archive-entry.new {
+    animation: none;
+  }
+
+  .result-sequence > * {
+    transition: none;
+  }
+
+  .circuit-fill {
     transition: none;
   }
 }
