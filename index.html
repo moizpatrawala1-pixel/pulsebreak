@@ -3,24 +3,59 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-    <meta name="theme-color" content="#0A0B12">
+    <meta name="theme-color" content="#080910">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Pulsebreak">
+    <meta name="description" content="Thread the needle. Build the streak. Survive the Clutch.">
     <title>Pulsebreak</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
     <main id="app" aria-label="Pulsebreak game">
 
-      <!-- Canvas -->
+      <!-- ═══════════════════════════════════════════════════════
+           CANVAS — game renders here
+           ═══════════════════════════════════════════════════════ -->
       <canvas id="gameCanvas" aria-label="Pulsebreak play field"></canvas>
 
-      <!-- Clutch overlay -->
+      <!-- ═══════════════════════════════════════════════════════
+           BOOT SCREEN — first impression, replaces menu-as-landing
+           ═══════════════════════════════════════════════════════ -->
+      <div id="bootScreen" aria-hidden="true">
+        <div class="boot-logo">
+          <p class="boot-subtitle">Signal Ghost</p>
+          <h1 class="boot-title">Pulsebreak</h1>
+          <canvas id="bootTrackCanvas" class="boot-track-preview" width="180" height="240" aria-hidden="true"></canvas>
+          <p class="boot-play-hint">Tap anywhere to play</p>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════
+           NEAR-MISS TEACH — fires on first near miss, first run
+           ═══════════════════════════════════════════════════════ -->
+      <div id="nearMissTeach" aria-live="assertive" role="alert">
+        <p class="teach-headline">THREAD<br>THE NEEDLE</p>
+        <p class="teach-sub">Stay close. Build the streak.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════
+           PERSONAL BEST FLASH — full screen, unmissable
+           ═══════════════════════════════════════════════════════ -->
+      <div id="pbFlash" aria-hidden="true"></div>
+
+      <!-- ═══════════════════════════════════════════════════════
+           CLUTCH OVERLAY
+           ═══════════════════════════════════════════════════════ -->
       <div id="clutchOverlay" aria-hidden="true">
         <div class="clutch-timer" id="clutchTimer"></div>
       </div>
 
-      <!-- HUD -->
+      <!-- ═══════════════════════════════════════════════════════
+           HUD
+           ═══════════════════════════════════════════════════════ -->
       <section id="hud" class="hud" aria-live="polite">
         <div class="hud-group">
           <span class="hud-label">Stage</span>
@@ -37,20 +72,26 @@
         <button id="pauseBtn" class="icon-button" type="button" aria-label="Pause">II</button>
       </section>
 
-      <!-- Streak display -->
+      <!-- ═══════════════════════════════════════════════════════
+           STREAK DISPLAY
+           ═══════════════════════════════════════════════════════ -->
       <div id="streakDisplay" aria-live="polite">
         <div class="streak-count" id="streakCount">0</div>
         <div class="streak-label" id="streakLabel">STREAK</div>
       </div>
 
-      <!-- Combo display -->
+      <!-- ═══════════════════════════════════════════════════════
+           COMBO DISPLAY
+           ═══════════════════════════════════════════════════════ -->
       <div id="comboDisplay" aria-live="polite">
         <span class="combo-value combo-x1" id="comboValue">1×</span>
         <span class="combo-label">COMBO</span>
       </div>
 
-      <!-- Boss HUD -->
-      <div class="boss-hud" id="bossHud">
+      <!-- ═══════════════════════════════════════════════════════
+           BOSS HUD
+           ═══════════════════════════════════════════════════════ -->
+      <div class="boss-hud" id="bossHud" aria-live="polite">
         <div class="boss-name" id="bossName"></div>
         <div class="boss-phase-track" id="bossPhaseTrack">
           <div class="boss-phase-pip" id="bossPip1"></div>
@@ -60,25 +101,82 @@
       </div>
       <div class="boss-weakpoint-flash" id="weakpointFlash" aria-hidden="true"></div>
 
-      <!-- Modifier screen -->
+      <!-- ═══════════════════════════════════════════════════════
+           MODIFIER SCREEN
+           ═══════════════════════════════════════════════════════ -->
       <section id="modifierScreen" class="screen" aria-label="Choose run modifier">
         <div class="modifier-header">
           <h3>Before you run</h3>
           <p id="modifierTitle">Choose a modifier</p>
+          <p class="modifier-header-sub">One changes everything. Choose wisely — or skip.</p>
         </div>
         <div class="modifier-cards" id="modifierCards">
           <!-- JS renders 3 .modifier-card elements here -->
         </div>
         <div class="modifier-confirm">
-          <button id="modifierConfirmBtn" class="button primary" type="button" disabled>Run</button>
+          <button id="modifierConfirmBtn" class="button primary" type="button" disabled>Run with modifier</button>
         </div>
-        <button id="modifierSkipBtn" class="button secondary" type="button" style="margin-top:7px;width:min(420px,100%)">Play without modifier</button>
+        <button id="modifierSkipBtn" class="button secondary" type="button"
+          style="margin-top:8px;width:min(440px,100%)">Play clean</button>
       </section>
 
-      <!-- Menu screen -->
+      <!-- ═══════════════════════════════════════════════════════
+           STARTER PACK MODAL — shown once on first run end
+           ═══════════════════════════════════════════════════════ -->
+      <div id="starterPackModal" aria-hidden="true">
+        <div class="starter-pack-box" role="dialog" aria-modal="true" aria-labelledby="starterPackTitle">
+          <div class="starter-pack-badge">One-time offer</div>
+          <p class="starter-pack-title" id="starterPackTitle">Starter Pack</p>
+          <p class="starter-pack-sub">Everything you need to thread your first streak</p>
+          <div class="starter-pack-items">
+            <div class="starter-item">
+              <span class="starter-item-icon">◆</span>
+              <span class="starter-item-label">5,000</span>
+              <span class="starter-item-sub">Coins</span>
+            </div>
+            <div class="starter-item">
+              <span class="starter-item-icon">⬡</span>
+              <span class="starter-item-label">10</span>
+              <span class="starter-item-sub">Cores</span>
+            </div>
+            <div class="starter-item">
+              <span class="starter-item-icon">✦</span>
+              <span class="starter-item-label">Rare</span>
+              <span class="starter-item-sub">Skin</span>
+            </div>
+          </div>
+          <div class="starter-price-row">
+            <span class="starter-price">₹99</span>
+            <span class="starter-price-original">₹499</span>
+          </div>
+          <button id="starterPackBuyBtn" class="button reward" type="button"
+            style="width:100%;min-height:52px">Get Starter Pack</button>
+          <button id="starterPackDismissBtn" class="starter-dismiss" type="button">No thanks</button>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════
+           SHARE CARD MODAL — renders a PNG card
+           ═══════════════════════════════════════════════════════ -->
+      <div id="shareCardModal" aria-hidden="true">
+        <div class="share-card-box" role="dialog" aria-modal="true" aria-label="Share your run">
+          <canvas id="shareCardCanvas" width="760" height="400" aria-hidden="true"></canvas>
+          <div class="share-actions">
+            <button id="shareCardDownloadBtn" class="button secondary" type="button">Save Image</button>
+            <button id="shareCardShareBtn" class="button primary" type="button">Share</button>
+          </div>
+          <button id="shareCardDismissBtn" class="button secondary" type="button"
+            style="margin-top:8px;width:100%">Close</button>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════
+           MENU SCREEN
+           ═══════════════════════════════════════════════════════ -->
       <section id="menuScreen" class="screen active" aria-label="Main menu">
         <div class="panel menu-panel">
 
+          <!-- Brand -->
           <div class="brand-row">
             <img src="assets/app-icon.svg" alt="" class="app-mark">
             <div>
@@ -87,6 +185,7 @@
             </div>
           </div>
 
+          <!-- Player stats -->
           <div class="menu-stats" aria-label="Player stats">
             <div><span>Level</span><strong id="levelText">1</strong></div>
             <div><span>Best</span><strong id="menuBest">0</strong></div>
@@ -96,38 +195,60 @@
             <div><span>XP</span><strong id="xpText">0/0</strong></div>
           </div>
 
-          <div class="tab-bar" role="tablist" aria-label="Pulsebreak systems">
-            <button class="tab-button active" data-tab="run"       type="button">Run</button>
-            <button class="tab-button"        data-tab="progress"  type="button">Progress</button>
-            <button class="tab-button"        data-tab="skills"    type="button">Skills</button>
-            <button class="tab-button"        data-tab="cosmetics" type="button">Style</button>
-            <button class="tab-button"        data-tab="social"    type="button">Social</button>
+          <!-- Leaderboard mini -->
+          <div class="leaderboard-mini" id="leaderboardMini" aria-label="Today's best scores">
+            <div class="leaderboard-mini-title">
+              <span>Today's Best</span>
+              <span id="leaderboardZoneLabel">Neon City</span>
+            </div>
+            <div id="leaderboardRows">
+              <!-- JS renders .leaderboard-row elements here -->
+            </div>
           </div>
 
-          <!-- TAB: Run -->
-          <div id="tabRun" class="tab-page active">
+          <!-- Tabs -->
+          <div class="tab-bar" role="tablist" aria-label="Pulsebreak systems">
+            <button class="tab-button active" data-tab="run"       role="tab" type="button">Run</button>
+            <button class="tab-button"        data-tab="progress"  role="tab" type="button">Progress</button>
+            <button class="tab-button"        data-tab="skills"    role="tab" type="button">Skills</button>
+            <button class="tab-button"        data-tab="cosmetics" role="tab" type="button">Style</button>
+            <button class="tab-button"        data-tab="social"    role="tab" type="button">Social</button>
+          </div>
+
+          <!-- ─── TAB: Run ──────────────────────────────────────── -->
+          <div id="tabRun" class="tab-page active" role="tabpanel">
+
             <div class="action-stack">
               <button id="playBtn"  class="button primary"   type="button">Play</button>
               <button id="dailyBtn" class="button secondary" type="button">Daily Run</button>
               <button id="ghostBtn" class="button secondary" type="button">Ghost Run</button>
             </div>
+
+            <!-- Post-run modifier challenge (hidden until after a run) -->
+            <div id="modifierChallengeBanner" class="modifier-challenge-banner">
+              Try next run with a modifier? Tap to pick one →
+            </div>
+
             <div class="menu-block">
               <div class="block-title">Zones</div>
               <div id="zoneGrid" class="zone-grid"></div>
             </div>
+
             <div class="menu-block">
               <div class="block-title">Missions</div>
               <div id="missionList" class="mission-list"></div>
             </div>
+
             <div class="menu-block">
               <div class="block-title">Today</div>
               <div id="dailyPanel" class="daily-panel"></div>
             </div>
+
             <div class="menu-block">
-              <div class="block-title">Circuit</div>
+              <div class="block-title">28-Day Circuit</div>
               <div class="circuit-panel" id="circuitPanel">
                 <div class="circuit-header">
-                  <span class="circuit-title">28-Day Circuit</span>
+                  <span class="circuit-title">Signal Points</span>
                   <span class="circuit-points" id="circuitPoints">0 SP</span>
                 </div>
                 <div class="circuit-track">
@@ -136,29 +257,43 @@
                 <div class="circuit-milestones" id="circuitMilestones"></div>
               </div>
             </div>
-          </div>
 
-          <!-- TAB: Progress -->
-          <div id="tabProgress" class="tab-page">
+          </div><!-- /tabRun -->
+
+          <!-- ─── TAB: Progress ─────────────────────────────────── -->
+          <div id="tabProgress" class="tab-page" role="tabpanel">
+
             <div class="menu-block">
               <div class="block-title">Season Track</div>
+              <!-- Season pass upsell -->
+              <div class="season-pass-banner" id="seasonPassBanner">
+                <div class="season-pass-info">
+                  <span class="season-pass-title">Season Pass</span>
+                  <span class="season-pass-sub">Unlock premium rewards at every milestone</span>
+                </div>
+                <span class="season-pass-price">₹299</span>
+              </div>
               <div class="season-track-wrapper">
                 <div class="season-track" id="seasonTrack"></div>
               </div>
             </div>
+
             <div class="menu-block">
               <div class="block-title">Account Rewards</div>
               <div id="levelPanel" class="system-list"></div>
             </div>
+
             <div class="menu-block">
               <div class="block-title">Achievements</div>
               <div id="achievementList" class="system-list tall"></div>
             </div>
-          </div>
 
-          <!-- TAB: Skills -->
-          <div id="tabSkills" class="tab-page">
+          </div><!-- /tabProgress -->
+
+          <!-- ─── TAB: Skills ───────────────────────────────────── -->
+          <div id="tabSkills" class="tab-page" role="tabpanel">
             <div class="menu-block">
+
               <div class="skill-archetype-section archetype-ghost">
                 <div class="skill-archetype-header">
                   <div class="skill-archetype-dot"></div>
@@ -167,6 +302,7 @@
                 </div>
                 <div id="skillTreeGhost" class="skill-tree"></div>
               </div>
+
               <div class="skill-archetype-section archetype-breaker">
                 <div class="skill-archetype-header">
                   <div class="skill-archetype-dot"></div>
@@ -175,6 +311,7 @@
                 </div>
                 <div id="skillTreeBreaker" class="skill-tree"></div>
               </div>
+
               <div class="skill-archetype-section archetype-surgeon">
                 <div class="skill-archetype-header">
                   <div class="skill-archetype-dot"></div>
@@ -183,11 +320,38 @@
                 </div>
                 <div id="skillTreeSurgeon" class="skill-tree"></div>
               </div>
-            </div>
-          </div>
 
-          <!-- TAB: Cosmetics -->
-          <div id="tabCosmetics" class="tab-page">
+            </div>
+          </div><!-- /tabSkills -->
+
+          <!-- ─── TAB: Style ────────────────────────────────────── -->
+          <div id="tabCosmetics" class="tab-page" role="tabpanel">
+
+            <!-- Coin bundles / IAP -->
+            <div class="menu-block">
+              <div class="block-title">Get Coins</div>
+              <div class="coin-bundles" id="coinBundles">
+                <div class="coin-bundle" data-coins="2500" data-price="49">
+                  <span class="coin-bundle-icon">◆</span>
+                  <span class="coin-bundle-amount">2,500</span>
+                  <span class="coin-bundle-price">₹49</span>
+                  <span class="coin-bundle-badge">Popular</span>
+                </div>
+                <div class="coin-bundle popular" data-coins="7500" data-price="129">
+                  <span class="coin-bundle-icon">◆◆</span>
+                  <span class="coin-bundle-amount">7,500</span>
+                  <span class="coin-bundle-price">₹129</span>
+                  <span class="coin-bundle-badge">Popular</span>
+                </div>
+                <div class="coin-bundle" data-coins="20000" data-price="299">
+                  <span class="coin-bundle-icon">◆◆◆</span>
+                  <span class="coin-bundle-amount">20,000</span>
+                  <span class="coin-bundle-price">₹299</span>
+                  <span class="coin-bundle-badge">Popular</span>
+                </div>
+              </div>
+            </div>
+
             <div class="menu-block"><div class="block-title">Skins</div><div id="skinGrid" class="skin-grid"></div></div>
             <div class="menu-block"><div class="block-title">Trails</div><div id="trailGrid" class="skin-grid"></div></div>
             <div class="menu-block"><div class="block-title">Boost Effects</div><div id="boostGrid" class="skin-grid"></div></div>
@@ -195,24 +359,31 @@
               <div class="block-title">Themes &amp; Sound</div>
               <div id="extraCosmetics" class="system-list"></div>
             </div>
-          </div>
 
-          <!-- TAB: Social -->
-          <div id="tabSocial" class="tab-page">
+          </div><!-- /tabCosmetics -->
+
+          <!-- ─── TAB: Social ───────────────────────────────────── -->
+          <div id="tabSocial" class="tab-page" role="tabpanel">
+
             <div class="menu-block">
               <div class="block-title">Signal Archive</div>
               <div class="archive-panel" id="archivePanel"></div>
             </div>
+
             <div class="menu-block">
               <div class="block-title">Ghosts &amp; Challenges</div>
               <div id="socialPanel" class="system-list"></div>
             </div>
+
             <div class="challenge-row">
-              <input id="challengeInput" type="text" inputmode="text" autocomplete="off" placeholder="Paste friend challenge code">
+              <input id="challengeInput" type="text" inputmode="text" autocomplete="off"
+                placeholder="Paste challenge code">
               <button id="challengeBtn" class="button secondary" type="button">Load</button>
             </div>
-          </div>
 
+          </div><!-- /tabSocial -->
+
+          <!-- Settings row -->
           <div class="settings-row">
             <button id="luckyBtn"   class="toggle-button" type="button">Lucky Spin</button>
             <button id="doubleBtn"  class="toggle-button" type="button">Double Last</button>
@@ -220,30 +391,45 @@
             <button id="hapticsBtn" class="toggle-button" type="button">Haptics On</button>
           </div>
 
-        </div>
-      </section>
+        </div><!-- /menu-panel -->
+      </section><!-- /menuScreen -->
 
-      <!-- Pause screen -->
+      <!-- ═══════════════════════════════════════════════════════
+           PAUSE SCREEN
+           ═══════════════════════════════════════════════════════ -->
       <section id="pauseScreen" class="screen" aria-label="Paused">
         <div class="panel tight-panel">
           <p class="eyebrow">Paused</p>
           <h2>Hold the line</h2>
-          <div class="action-stack">
+          <div class="action-stack" style="margin-top:24px">
             <button id="resumeBtn"    class="button primary"   type="button">Resume</button>
             <button id="pauseMenuBtn" class="button secondary" type="button">Menu</button>
           </div>
         </div>
       </section>
 
-      <!-- Game over screen -->
+      <!-- ═══════════════════════════════════════════════════════
+           GAME OVER / RESULTS SCREEN
+           ═══════════════════════════════════════════════════════ -->
       <section id="gameOverScreen" class="screen" aria-label="Run complete">
         <div class="panel tight-panel">
+
           <p id="runModeText" class="eyebrow">Run complete</p>
           <h2 id="finalScore">0</h2>
-          <div class="personal-best-flag" id="personalBestFlag">NEW BEST</div>
+
+          <!-- Personal best — large and animated -->
+          <div class="personal-best-flag" id="personalBestFlag">✦ NEW BEST</div>
+
+          <!-- So close — animated, critical state for &gt;97% -->
           <div class="so-close" id="soClose"></div>
+
+          <!-- Streak highlight -->
           <div class="result-streak-highlight" id="resultStreakHighlight"></div>
+
+          <!-- Coin animation stage -->
           <div class="coins-animation-stage" id="coinsStage" aria-hidden="true"></div>
+
+          <!-- Result grid — staggered reveal -->
           <div class="result-grid result-sequence" id="resultGrid">
             <div><span>Coins</span><strong id="earnedCoins">0</strong></div>
             <div><span>Shards</span><strong id="finalShards">0</strong></div>
@@ -252,17 +438,27 @@
             <div><span>XP</span><strong id="finalXp">0</strong></div>
             <div><span>Highlight</span><strong id="finalMoment">Run</strong></div>
           </div>
+
+          <!-- Post-run modifier challenge nudge -->
+          <div id="modifierChallengeBannerResult" class="modifier-challenge-banner">
+            Next run: try a modifier for bonus rewards →
+          </div>
+
+          <!-- Action buttons -->
           <div class="action-stack">
             <button id="restartBtn"      class="button primary"   type="button">Run It Back</button>
-            <button id="reviveBtn"       class="button reward"    type="button">Revive</button>
+            <button id="reviveBtn"       class="button reward"    type="button">Revive — Watch Ad</button>
             <button id="doubleRewardBtn" class="button reward"    type="button">Double Rewards</button>
             <button id="shareBtn"        class="button secondary" type="button">Share Card</button>
             <button id="gameOverMenuBtn" class="button secondary" type="button">Menu</button>
           </div>
+
         </div>
       </section>
 
-      <!-- Boost button with SVG ring -->
+      <!-- ═══════════════════════════════════════════════════════
+           BOOST BUTTON
+           ═══════════════════════════════════════════════════════ -->
       <button id="boostBtn" class="boost-button" type="button" aria-label="Trigger pulse boost">
         <svg id="boostRing" viewBox="0 0 96 96" aria-hidden="true">
           <circle id="boostRingTrack" cx="48" cy="48" r="44"/>
@@ -271,10 +467,14 @@
         <span class="boost-button-inner">Boost</span>
       </button>
 
-      <!-- Toast -->
-      <div id="toast" class="toast" aria-live="polite"></div>
+      <!-- ═══════════════════════════════════════════════════════
+           TOAST
+           ═══════════════════════════════════════════════════════ -->
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-      <!-- Ad modal -->
+      <!-- ═══════════════════════════════════════════════════════
+           AD MODAL
+           ═══════════════════════════════════════════════════════ -->
       <section id="adModal" class="ad-modal" aria-hidden="true">
         <div class="ad-box" role="dialog" aria-modal="true" aria-labelledby="adTitle">
           <p class="eyebrow">Sponsored break</p>
@@ -284,7 +484,7 @@
         </div>
       </section>
 
-    </main>
+    </main><!-- /app -->
 
     <script src="game.js"></script>
   </body>
