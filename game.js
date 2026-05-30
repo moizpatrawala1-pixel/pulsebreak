@@ -1,34 +1,6 @@
 (() => {
   "use strict";
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // SIGNAL GHOST — Pulsebreak Visual Redesign
-  //
-  // Palette applied throughout:
-  //   Ghost White  #E8EDF5  — player, UI text
-  //   Breach Red   #E8344A  — danger / obstacles
-  //   Amber Core   #FF8C42  — reward / shards
-  //   Slate Void   #0A0B12  — background
-  //   Signal Blue  #1A2340  — track / structure
-  //   Wake Ice     #C8F0FF  — near-miss wake strokes
-  //   Boost Orange #FF5500  — boost state only
-  //   Perfect Mint #A0FFB4  — stage perfect only
-  //
-  // Key new systems:
-  //   • Teardrop player with filament trails
-  //   • Near-miss wake strokes (quadraticCurveTo brushmarks, 400ms decay)
-  //   • Near-miss screen-edge lane flash
-  //   • Circular SVG energy ring on boost button (energy = ring progress)
-  //   • Obstacle families: Bulkhead / Spine / Crawler / Sentinel
-  //   • Zone-specific atmosphere layers (parallax silhouettes, hex grid, tears…)
-  //   • Combo visual escalation (size + color + flash thresholds)
-  //   • Boost cinema: white flash → desaturate obstacles → speed-lines → reverse flash
-  //   • Death: 12 teardrop fragments with individual filament trails
-  //   • Stage-clear beam sweep
-  //   • Score counter scaleY pulse on increase
-  //   • Ambient idle ghost on menu canvas
-  // ─────────────────────────────────────────────────────────────────────────────
-
   const STORAGE_KEY     = "pulsebreak.save.v2";
   const OLD_STORAGE_KEY = "pulsebreak.save.v1";
   const AD_UNITS        = { rewarded: "REPLACE_WITH_ADMOB_REWARDED_ID" };
@@ -36,7 +8,6 @@
   const canvas = document.getElementById("gameCanvas");
   const ctx    = canvas.getContext("2d", { alpha: false });
 
-  // ── Performance tier ─────────────────────────────────────────────────────────
   const PERF = (() => {
     const mem   = navigator.deviceMemory       || 4;
     const cores = navigator.hardwareConcurrency || 4;
@@ -52,7 +23,6 @@
     };
   })();
 
-  // ── Colours (centralised) ────────────────────────────────────────────────────
   const C = {
     ghost:     "#E8EDF5",
     danger:    "#E8344A",
@@ -66,7 +36,6 @@
     muted:     "#8896B0",
   };
 
-  // ── DOM refs ─────────────────────────────────────────────────────────────────
   const els = {
     hud:            document.getElementById("hud"),
     menu:           document.getElementById("menuScreen"),
@@ -75,7 +44,6 @@
     stage:          document.getElementById("stageText"),
     score:          document.getElementById("scoreText"),
     best:           document.getElementById("bestText"),
-    energy:         document.getElementById("energyFill"),   // hidden, kept for compat
     level:          document.getElementById("levelText"),
     xp:             document.getElementById("xpText"),
     menuBest:       document.getElementById("menuBest"),
@@ -90,7 +58,6 @@
     missionList:    document.getElementById("missionList"),
     dailyPanel:     document.getElementById("dailyPanel"),
     levelPanel:     document.getElementById("levelPanel"),
-    skillTree:      document.getElementById("skillTree"),
     achievementList:document.getElementById("achievementList"),
     socialPanel:    document.getElementById("socialPanel"),
     challengeInput: document.getElementById("challengeInput"),
@@ -115,15 +82,10 @@
     doubleLast:     document.getElementById("doubleBtn"),
     sound:          document.getElementById("soundBtn"),
     haptics:        document.getElementById("hapticsBtn"),
-    scoreStrong:    document.querySelector("#scoreText"),
+    scoreStrong:    document.getElementById("scoreText"),
   };
 
-  // Boost ring circumference for r=44: 2π×44 ≈ 276.5
   const RING_CIRC = 2 * Math.PI * 44;
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // DATA — unchanged from original (zones, stages, skins, etc.)
-  // ─────────────────────────────────────────────────────────────────────────────
 
   const RARITIES = {
     Common:    { color: C.ghost,   coin: [150, 600],     fragment: 0  },
@@ -179,25 +141,25 @@
   ];
 
   const SKILL_NODES = [
-    ["lane_snap","Lane Snap","Reflex","movement",5,250,0,"+3% lane response"],
-    ["near_window","Near-Miss Window","Reflex","near",5,300,0,"+4px near-miss grace"],
-    ["calm_start","Calm Start","Reflex","startShield",3,450,1,"+0.5s start guard"],
-    ["boost_duration","Boost Duration","Pulse","boostDuration",6,500,1,"+0.12s boost"],
-    ["boost_recharge","Boost Recharge","Pulse","boostRecharge",6,500,1,"+4% Pulse gain"],
-    ["boost_score","Boost Break Score","Pulse","boostScore",5,650,2,"+6% break score"],
-    ["combo_cap","Combo Cap","Score","comboCap",5,700,2,"+3 max combo"],
-    ["perfect_stage","Perfect Stage","Score","perfectScore",5,500,1,"+7% perfect reward"],
-    ["boss_score","Boss Multiplier","Score","bossScore",4,900,3,"+8% boss score"],
-    ["coin_mult","Coin Multiplier","Economy","coinMult",5,600,1,"+5% run coins"],
-    ["shard_value","Shard Value","Economy","shardValue",5,650,2,"+3% shard value"],
-    ["mission_bonus","Mission Bonus","Economy","missionBonus",4,800,3,"+6% mission coins"],
-    ["failsafe","Failsafe Shield","Survival","shield",5,1000,4,"Rank 5 grants shield"],
-    ["extra_life","Extra Life","Survival","extraLife",1,3000,18,"One earned revive"],
-    ["boss_guard","Boss Guard","Survival","bossGuard",4,1300,5,"Boss hit guard"],
-    ["rare_spawn","Rare Spawn Chance","Discovery","rare",6,900,3,"+2% rare spawns"],
-    ["blueprint","Blueprint Magnet","Discovery","blueprint",5,1200,4,"+3% blueprint odds"],
-    ["lucky_quality","Lucky Quality","Discovery","lucky",4,1500,6,"Better spin floor"],
-  ].map(r => ({ id: r[0], name: r[1], branch: r[2], bonus: r[3], ranks: r[4], baseCoins: r[5], baseCores: r[6], copy: r[7] }));
+    ["lane_snap","Lane Snap","Reflex","movement",5,250,0,"+3% lane response","ghost"],
+    ["near_window","Near-Miss Window","Reflex","near",5,300,0,"+4px near-miss grace","ghost"],
+    ["calm_start","Calm Start","Reflex","startShield",3,450,1,"+0.5s start guard","ghost"],
+    ["lucky_quality","Lucky Quality","Discovery","lucky",4,1500,6,"Better spin floor","ghost"],
+    ["rare_spawn","Rare Spawn Chance","Discovery","rare",6,900,3,"+2% rare spawns","ghost"],
+    ["blueprint","Blueprint Magnet","Discovery","blueprint",5,1200,4,"+3% blueprint odds","ghost"],
+    ["boost_duration","Boost Duration","Pulse","boostDuration",6,500,1,"+0.12s boost","breaker"],
+    ["boost_recharge","Boost Recharge","Pulse","boostRecharge",6,500,1,"+4% Pulse gain","breaker"],
+    ["boost_score","Boost Break Score","Pulse","boostScore",5,650,2,"+6% break score","breaker"],
+    ["failsafe","Failsafe Shield","Survival","shield",5,1000,4,"Rank 5 grants shield","breaker"],
+    ["extra_life","Extra Life","Survival","extraLife",1,3000,18,"One earned revive","breaker"],
+    ["boss_guard","Boss Guard","Survival","bossGuard",4,1300,5,"Boss hit guard","breaker"],
+    ["combo_cap","Combo Cap","Score","comboCap",5,700,2,"+3 max combo","surgeon"],
+    ["perfect_stage","Perfect Stage","Score","perfectScore",5,500,1,"+7% perfect reward","surgeon"],
+    ["boss_score","Boss Multiplier","Score","bossScore",4,900,3,"+8% boss score","surgeon"],
+    ["coin_mult","Coin Multiplier","Economy","coinMult",5,600,1,"+5% run coins","surgeon"],
+    ["shard_value","Shard Value","Economy","shardValue",5,650,2,"+3% shard value","surgeon"],
+    ["mission_bonus","Mission Bonus","Economy","missionBonus",4,800,3,"+6% mission coins","surgeon"],
+  ].map(r => ({ id: r[0], name: r[1], branch: r[2], bonus: r[3], ranks: r[4], baseCoins: r[5], baseCores: r[6], copy: r[7], archetype: r[8] }));
 
   const MISSION_BANK = [
     ["score_500","Score 500","score",500,80],
@@ -272,7 +234,35 @@
   const SOUND_PACKS   = makeCosmetics("sound",    ["Classic Pulse","Synthwave","Minimal Click","Glitch Pop","Quantum Bass","Boss Heavy","Calm Focus","Prestige Noise"]);
   const ACHIEVEMENTS  = buildAchievements();
 
- const DEFAULT_SAVE = {
+  const MODIFIERS = [
+    { id:"slipstream",    tag:"BUFF",  name:"Slipstream",    desc:"3s after each near miss, all energy gain ×2.",            type:"buff"  },
+    { id:"afterburner",   tag:"BUFF",  name:"Afterburner",   desc:"Boost duration 5.0s instead of 3.6s.",                   type:"buff"  },
+    { id:"momentum",      tag:"BUFF",  name:"Momentum",      desc:"Combo decay stops during Boost.",                         type:"buff"  },
+    { id:"thin_ice",      tag:"BUFF",  name:"Thin Ice",      desc:"Near-miss window +10px. Any hit ends run immediately.",  type:"buff"  },
+    { id:"overclock",     tag:"BUFF",  name:"Overclock",     desc:"Every 10th near miss gives a free 1s Boost.",            type:"buff"  },
+    { id:"signal_decay",  tag:"CURSE", name:"Signal Decay",  desc:"Energy decays 6%/s. Near misses are your lifeline.",     type:"curse" },
+    { id:"compression",   tag:"CURSE", name:"Compression",   desc:"Track width 80%. Near-miss windows physically smaller.", type:"curse" },
+    { id:"tremor",        tag:"CURSE", name:"Tremor",        desc:"Position drifts ±3px on 0.4s sine. Counteract it.",      type:"curse" },
+    { id:"blind_approach",tag:"CURSE", name:"Blind Approach",desc:"Obstacle warning time −40%. Pattern memory wins.",       type:"curse" },
+    { id:"leaky_shield",  tag:"CURSE", name:"Leaky Shield",  desc:"Failsafe skill does not activate this run.",             type:"curse" },
+    { id:"ghost_run",     tag:"SHIFT", name:"Ghost Run",     desc:"No energy from near misses. Near miss = combo × 80 score.", type:"shift" },
+    { id:"mirror_world",  tag:"SHIFT", name:"Mirror World",  desc:"Lane order reversed. Lane 0 is now lane 4.",             type:"shift" },
+    { id:"pacifist",      tag:"SHIFT", name:"Pacifist",      desc:"Boost disabled. At 100% energy, near-miss window +6px.",type:"shift" },
+    { id:"precision",     tag:"SHIFT", name:"Precision",     desc:"Only near misses ≤8px count. Others are clean passes.",  type:"shift" },
+    { id:"cascade",       tag:"SHIFT", name:"Cascade",       desc:"Each stage cleared spawns a 15s bonus shard stage.",     type:"shift" },
+    { id:"double_threat", tag:"SHIFT", name:"Double Threat", desc:"Speed +15%. Score from all sources ×1.8.",               type:"shift" },
+  ];
+
+  const SPAWN_WEIGHTS = {
+    neon_city:        { bulkhead:40, splice:15, convoy:15, gate:15, drift:10, pulse:5 },
+    quantum_core:     { bulkhead:30, splice:20, convoy:15, gate:20, drift:10, pulse:5 },
+    void_network:     { bulkhead:25, splice:15, convoy:10, gate:20, drift:10, pulse:10, phantom:10 },
+    glitch_dimension: { bulkhead:20, splice:15, convoy:10, gate:15, drift:10, pulse:5, echoes:25 },
+    singularity:      { bulkhead:25, splice:15, convoy:10, gate:15, drift:10, pulse:5, gravity_well:20 },
+    pulse_nexus:      { bulkhead:20, splice:20, convoy:15, gate:20, drift:10, pulse:10, mirror:5 },
+  };
+
+  const DEFAULT_SAVE = {
     version:2,best:0,coins:0,xp:0,level:1,cores:0,fragments:0,
     streakTokens:0,ascensionMarks:0,runs:0,
     selectedZone:"neon_city",selectedSkin:"skin_001",selectedTrail:"trail_001",
@@ -300,7 +290,8 @@
   };
 
   const save  = loadSave();
- const state = {
+
+  const state = {
     screen:"menu",mode:"classic",lanes:5,dpr:1,
     w:0,h:0,trackX:0,trackW:0,laneW:0,
     playerY:0,playerX:0,targetLane:2,pointerId:null,
@@ -312,62 +303,28 @@
     spawnTimer:0,stageIndex:1,stageTimer:0,stageHits:0,
     recordTimer:0,inputGhost:[],ghostReplay:null,
     obstacles:[],shards:[],particles:[],sparks:[],messages:[],
-    wakes:[],
-    fragments:[],
-    boostCinema:0,
-    stageBeam:0,
-    bossReveal:0,
-    bossRevealName:"",
-    glitchTears:[],
-    shake:0,rng:Math.random,seed:0,
-    // ── Near-miss streak ──────────────────────────────────────────────────────
-    nearMissStreak:0,
-    nearMissCleanPassPending:false,
-    // ── Clutch Mode ───────────────────────────────────────────────────────────
-    clutchActive:false,
-    clutchTimer:0,
-    // ── Modifiers ─────────────────────────────────────────────────────────────
-    activeModifier:null,
-    tremorPhase:0,
-    slipstreamTimer:0,
-    nearMissCountMod:0,
-    // ── Zone-specific ─────────────────────────────────────────────────────────
-    commitLock:0,
-    glitchFlashTimer:0,
-    glitchFlashActive:false,
-    heat:0,
-    heatSurge:0,
-    gravityPull:0,
-    // ── Boss ──────────────────────────────────────────────────────────────────
-    bossPhase:0,
-    bossPhaseTimer:0,
-    bossWeakpointActive:false,
-    bossStaggerTimer:0,
-    bossDefeatPhase:0,
-    bossDefeatTimer:0,
-    bossWeakpointCount:0,
-    // ── Pattern rhythm ────────────────────────────────────────────────────────
-    patternBeat:0,
-    spawnDensityMul:1.0,
-    // ── Track materialise ─────────────────────────────────────────────────────
-    trackMaterialise:1.0,
-    // ── Onboarding ────────────────────────────────────────────────────────────
-    onboarding:false,
-    onboardingPhase:0,
-    onboardingTimer:0,
+    wakes:[],fragments:[],boostCinema:0,stageBeam:0,bossReveal:0,bossRevealName:"",
+    glitchTears:[],shake:0,rng:Math.random,seed:0,
+    nearMissStreak:0,nearMissCleanPassPending:false,
+    clutchActive:false,clutchTimer:0,
+    activeModifier:null,tremorPhase:0,slipstreamTimer:0,nearMissCountMod:0,
+    commitLock:0,glitchFlashTimer:0,glitchFlashActive:false,
+    heat:0,heatSurge:0,gravityPull:0,
+    bossPhase:0,bossPhaseTimer:0,bossWeakpointActive:false,bossStaggerTimer:0,
+    bossDefeatPhase:0,bossDefeatTimer:0,bossWeakpointCount:0,
+    patternBeat:0,spawnDensityMul:1.0,trackMaterialise:1.0,
+    onboarding:false,onboardingPhase:0,onboardingTimer:0,
     comboDecayRate:1.6,
     run:freshRunStats()
   };
-  // Ambient menu idle ghost
-  const menuGhost = { x: 0, lane: 2, time: 0, active: false };
 
+  const menuGhost = { x: 0, lane: 2, time: 0, active: false };
   let audioCtx  = null;
   let lastFrame = performance.now();
   let toastTimer= 0;
+  let selectedModifierCard = null;
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // DATA HELPERS (unchanged)
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ── Data helpers ─────────────────────────────────────────────────────────────
 
   function makeCosmetics(prefix, names) {
     return names.map((name, i) => ({
@@ -483,18 +440,14 @@
     }));
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // SAVE / LOAD
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ── Save/load ─────────────────────────────────────────────────────────────────
 
   function loadSave() {
     let parsed={};
     try { parsed=JSON.parse(localStorage.getItem(STORAGE_KEY)||localStorage.getItem(OLD_STORAGE_KEY)||"{}"); }
     catch { parsed={}; }
     const merged=mergeSave(DEFAULT_SAVE,parsed);
-    if (parsed.selectedSkin==="volt"||parsed.unlocked?.volt) {
-      merged.selectedSkin="skin_001"; merged.unlocked.skins.skin_001=true;
-    }
+    if(parsed.selectedSkin==="volt"||parsed.unlocked?.volt){merged.selectedSkin="skin_001";merged.unlocked.skins.skin_001=true;}
     normalizeSave(merged);
     return merged;
   }
@@ -529,26 +482,18 @@
     };
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // UTILITIES
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ── Utilities ─────────────────────────────────────────────────────────────────
 
-  function dayKey(offset=0) {
-    const d=new Date(Date.now()+offset*86400000);
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-  }
-  function weekKey() {
-    const d=new Date(),s=new Date(d.getFullYear(),0,1);
-    return `${d.getFullYear()}-W${String(Math.ceil((((d-s)/86400000)+s.getDay()+1)/7)).padStart(2,"0")}`;
-  }
-  function xpForLevel(l) { return Math.round(80+Math.pow(l,1.42)*42); }
-  function xpAtLevel(l)  { let t=0; for(let i=1;i<l;i++)t+=xpForLevel(i); return t; }
-  function levelFromXp(xp) { let l=1,r=xp; while(l<100&&r>=xpForLevel(l)){r-=xpForLevel(l);l++;} return l; }
-  function addXp(amt) {
-    const before=save.level; save.xp+=Math.max(0,Math.floor(amt)); save.level=levelFromXp(save.xp);
+  function dayKey(offset=0){const d=new Date(Date.now()+offset*86400000);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;}
+  function weekKey(){const d=new Date(),s=new Date(d.getFullYear(),0,1);return `${d.getFullYear()}-W${String(Math.ceil((((d-s)/86400000)+s.getDay()+1)/7)).padStart(2,"0")}`;}
+  function xpForLevel(l){return Math.round(80+Math.pow(l,1.42)*42);}
+  function xpAtLevel(l){let t=0;for(let i=1;i<l;i++)t+=xpForLevel(i);return t;}
+  function levelFromXp(xp){let l=1,r=xp;while(l<100&&r>=xpForLevel(l)){r-=xpForLevel(l);l++;}return l;}
+  function addXp(amt){
+    const before=save.level;save.xp+=Math.max(0,Math.floor(amt));save.level=levelFromXp(save.xp);
     if(save.level>before){toast(`Level ${save.level}`);awardLevelMilestones(before+1,save.level);}
   }
-  function awardLevelMilestones(from,to) {
+  function awardLevelMilestones(from,to){
     for(let l=from;l<=to;l++){
       if(l%5===0)save.cores+=1+Math.floor(l/20);
       if(l===10)unlockCosmetic("skins","skin_031");
@@ -557,19 +502,13 @@
       if(l===100)save.ascensionMarks+=1;
     }
   }
-  function hashString(v) {
-    let h=2166136261;
-    for(let i=0;i<v.length;i++){h^=v.charCodeAt(i);h=Math.imul(h,16777619);}
-    return h>>>0;
-  }
-  function mulberry32(seed) {
-    return function rng(){let t=seed+=0x6d2b79f5;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296;};
-  }
-  function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
+  function hashString(v){let h=2166136261;for(let i=0;i<v.length;i++){h^=v.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+  function mulberry32(seed){return function rng(){let t=seed+=0x6d2b79f5;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296;};}
+  function clamp(v,mn,mx){return Math.max(mn,Math.min(mx,v));}
   function format(v){return Math.floor(v).toLocaleString();}
   function selectedSkin(){return SKINS.find(s=>s.id===save.selectedSkin)||SKINS[0];}
   function currentZone(){return ZONES.find(z=>z.id===save.selectedZone)||ZONES[0];}
-  function currentStage() {
+  function currentStage(){
     const idx=(state.stageIndex-1)%STAGES.length;
     const loops=Math.floor((state.stageIndex-1)/STAGES.length);
     const base=STAGES[idx];
@@ -577,23 +516,48 @@
   }
   function skillRank(id){return save.skills[id]||0;}
   function bonus(kind){return SKILL_NODES.filter(n=>n.bonus===kind).reduce((s,n)=>s+skillRank(n.id),0);}
-  function energyGain(base){return base*(1+bonus("boostRecharge")*0.04);}
+  function energyGainMul(){
+    let mul=1;
+    if(state.slipstreamTimer>0)mul*=2;
+    if(state.nearMissStreak>=3&&state.nearMissStreak<10)mul*=1.5;
+    if(state.clutchActive)mul*=3;
+    if(save.selectedZone==="singularity"&&state.gravityPull!==0){
+      const inputDir=state.targetLane-laneFromX(state.playerX);
+      const gravDir=state.gravityPull>0?1:-1;
+      if(inputDir!==0&&Math.sign(inputDir)!==Math.sign(gravDir))mul*=1.5;
+    }
+    if(save.selectedZone==="glitch_dimension"&&state.glitchFlashActive)mul*=2;
+    return mul;
+  }
+  function energyGain(base){return base*(1+bonus("boostRecharge")*0.04)*energyGainMul();}
   function maxComboCap(){return 20+bonus("comboCap")*3+save.ascensionMarks;}
   function coinMultiplier(){return 1+bonus("coinMult")*0.05+save.ascensionMarks*0.01;}
-  function scoreMultiplier(){return 1+bonus("perfectScore")*0.015+save.ascensionMarks*0.005;}
+  function scoreMultiplier(){
+    let m=1+bonus("perfectScore")*0.015+save.ascensionMarks*0.005;
+    if(state.nearMissStreak>=5&&state.nearMissStreak<10)m*=1.5;
+    if(state.clutchActive)m*=2.5;
+    if(state.bossStaggerTimer>0)m*=4;
+    if(state.activeModifier==="double_threat")m*=1.8;
+    return m;
+  }
   function isZoneUnlocked(zone){return save.level>=zone.unlockLevel;}
+  function nearMissWindow(){
+    let w=22;
+    const stage=currentStage();
+    if(stage.speedMul>=2.32)w=16;
+    if(save.selectedZone==="void_network")w=18;
+    w+=bonus("near")*4;
+    if(state.nearMissStreak>=5)w+=4;
+    if(state.activeModifier==="thin_ice")w+=10;
+    if(state.activeModifier==="pacifist"&&state.energy>=100)w+=6;
+    if(state.activeModifier==="compression")w-=4;
+    return w;
+  }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // LIVE SYSTEMS (unchanged logic)
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ── Live systems ──────────────────────────────────────────────────────────────
 
   function ensureLiveSystems(){ensureLoginState();ensureDailyMissions();ensureWeeklyChallenges();ensureAdDay();}
-  function ensureLoginState(){
-    const today=dayKey();
-    if(save.lastLogin===today)return;
-    save.loginStreak=save.lastLogin===dayKey(-1)?save.loginStreak+1:1;
-    save.lastLogin=today;save.dailyClaimed="";
-  }
+  function ensureLoginState(){const today=dayKey();if(save.lastLogin===today)return;save.loginStreak=save.lastLogin===dayKey(-1)?save.loginStreak+1:1;save.lastLogin=today;save.dailyClaimed="";}
   function ensureDailyMissions(){
     const key=dayKey(),slots=save.level>=20?4:3;
     if(save.missionDay===key&&Array.isArray(save.missions)&&save.missions.length===slots)return;
@@ -610,26 +574,33 @@
     save.weeklyKey=key;
     save.weekly=pool.slice(0,3).map(c=>({...c,progress:0,done:false,paid:false}));
   }
-  function ensureAdDay(){
-    const today=dayKey();
-    if(save.adDay===today)return;
-    save.adDay=today;save.adCounts={total:0,revive:0,double:0,spin:0,mission:0};
+  function ensureAdDay(){const today=dayKey();if(save.adDay===today)return;save.adDay=today;save.adCounts={total:0,revive:0,double:0,spin:0,mission:0};}
+  function canWatchAd(placement){ensureAdDay();const caps={total:20,revive:8,double:5,spin:2,mission:3};return(save.adCounts.total||0)<caps.total&&(save.adCounts[placement]||0)<(caps[placement]||5);}
+  function countAd(placement){ensureAdDay();save.adCounts.total=(save.adCounts.total||0)+1;save.adCounts[placement]=(save.adCounts[placement]||0)+1;save.stats.adsWatched=(save.stats.adsWatched||0)+1;}
+
+  // ── Circuit / Season ──────────────────────────────────────────────────────────
+
+  function ensureCircuitReset(){
+    const now=Date.now();
+    if(!save.circuit.resetDate){save.circuit.resetDate=new Date().toISOString();return;}
+    const last=new Date(save.circuit.resetDate).getTime();
+    if(now-last>28*86400000){save.circuit.points=0;save.circuit.resetDate=new Date().toISOString();}
   }
-  function canWatchAd(placement){
-    ensureAdDay();
-    const caps={total:20,revive:8,double:5,spin:2,mission:3};
-    return (save.adCounts.total||0)<caps.total&&(save.adCounts[placement]||0)<(caps[placement]||5);
+  function earnCircuitPoints(){
+    let sp=0;
+    if(state.run.score>save.best)sp+=500;
+    if(state.clutchActive||state.run.viralMoments>0)sp+=80*Math.max(1,state.run.viralMoments);
+    if(state.run.stageReached>=15)sp+=120;
+    sp+=state.run.bossesDefeated*200;
+    save.circuit.points+=sp;
   }
-  function countAd(placement){
-    ensureAdDay();
-    save.adCounts.total=(save.adCounts.total||0)+1;
-    save.adCounts[placement]=(save.adCounts[placement]||0)+1;
-    save.stats.adsWatched=(save.stats.adsWatched||0)+1;
+  function earnSeasonXp(){
+    const sxp=Math.floor(state.run.xpEarned*0.3);
+    save.season.xp+=sxp;
+    while(save.season.xp>=50&&save.season.level<30){save.season.xp-=50;save.season.level+=1;}
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // LAYOUT
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ── Layout ────────────────────────────────────────────────────────────────────
 
   function resize(){
     state.dpr=Math.min(PERF.dprCap,window.devicePixelRatio||1);
@@ -640,7 +611,9 @@
     canvas.style.width=`${state.w}px`;
     canvas.style.height=`${state.h}px`;
     ctx.setTransform(state.dpr,0,0,state.dpr,0,0);
-    state.trackW=Math.min(state.w*(state.w<680?0.9:0.54),520);
+    let trackW=Math.min(state.w*(state.w<680?0.9:0.54),520);
+    if(state.activeModifier==="compression")trackW*=0.8;
+    state.trackW=trackW;
     state.trackX=(state.w-state.trackW)/2;
     state.laneW=state.trackW/state.lanes;
     state.playerY=Math.min(state.h*0.78,state.h-122);
@@ -648,12 +621,17 @@
     menuGhost.x=laneCenter(2);
   }
 
-  function laneCenter(lane){return state.trackX+state.laneW*(lane+0.5);}
-  function laneFromX(x){return clamp(Math.floor((x-state.trackX)/state.laneW),0,state.lanes-1);}
+  function laneCenter(lane){
+    if(state.activeModifier==="mirror_world")lane=4-lane;
+    return state.trackX+state.laneW*(lane+0.5);
+  }
+  function laneFromX(x){
+    let lane=clamp(Math.floor((x-state.trackX)/state.laneW),0,state.lanes-1);
+    if(state.activeModifier==="mirror_world")lane=4-lane;
+    return lane;
+  }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // SCREEN MANAGEMENT
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ── Screen management ─────────────────────────────────────────────────────────
 
   function setScreen(screen){
     state.screen=screen;
@@ -664,18 +642,26 @@
     els.boost.classList.toggle("visible",screen==="playing");
     if(screen==="menu"){updateMenu();menuGhost.active=true;}
     else{menuGhost.active=false;}
+    if(screen!=="playing"){
+      document.getElementById("app").classList.remove("clutch-active");
+      document.getElementById("bossHud").classList.remove("visible");
+    }
+    if(screen==="menu"||screen==="gameover"){
+      setTimeout(()=>{
+        document.getElementById("streakDisplay").classList.remove("visible");
+        document.getElementById("comboDisplay").classList.remove("visible");
+      },1500);
+    }
   }
   function switchTab(name){
     document.querySelectorAll(".tab-button").forEach(b=>b.classList.toggle("active",b.dataset.tab===name));
     document.querySelectorAll(".tab-page").forEach(p=>p.classList.toggle("active",p.id===`tab${name[0].toUpperCase()}${name.slice(1)}`));
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // MENU RENDERING
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ── Menu rendering ────────────────────────────────────────────────────────────
 
   function updateMenu(){
-    ensureLiveSystems();
+    ensureLiveSystems();ensureCircuitReset();
     const baseXp=xpAtLevel(save.level),next=xpForLevel(save.level);
     els.level.textContent=format(save.level);
     els.xp.textContent=`${format(save.xp-baseXp)}/${format(next)}`;
@@ -690,6 +676,7 @@
     els.haptics.classList.toggle("on",save.haptics);
     renderZones();renderMissions();renderDailyPanel();renderLevelPanel();
     renderSkillTree();renderAchievements();renderCosmetics();renderSocial();
+    renderArchive();renderCircuit();renderSeasonTrack();
   }
 
   function renderZones(){
@@ -746,18 +733,24 @@
   }
 
   function renderSkillTree(){
-    els.skillTree.replaceChildren();
-    SKILL_NODES.forEach(node=>{
-      const rank=skillRank(node.id),cost=skillCost(node,rank+1);
-      const capped=rank>=node.ranks,locked=save.level<unlockLevelForSkill(node);
-      const button=document.createElement("button");
-      button.type="button";
-      button.className=`skill-button${capped?" selected":""}${locked?" locked":""}`;
-      button.style.setProperty("--skin",locked?C.muted:branchColor(node.branch));
-      button.innerHTML=`<span class="skill-dot" aria-hidden="true"></span><span><span class="skin-name">${node.name} ${rank}/${node.ranks}</span><span class="skin-cost">${locked?`Level ${unlockLevelForSkill(node)}`:capped?"Maxed":`${format(cost.coins)} coins · ${format(cost.cores)} cores · ${node.copy}`}</span></span>`;
-      button.addEventListener("click",()=>buySkill(node));
-      els.skillTree.append(button);
-    });
+    const archetypes={ghost:"Ghost",breaker:"Breaker",surgeon:"Surgeon"};
+    for(const[arch,label] of Object.entries(archetypes)){
+      const containerId=`skillTree${arch[0].toUpperCase()}${arch.slice(1)}`;
+      const container=document.getElementById(containerId);
+      if(!container)continue;
+      container.replaceChildren();
+      SKILL_NODES.filter(n=>n.archetype===arch).forEach(node=>{
+        const rank=skillRank(node.id),cost=skillCost(node,rank+1);
+        const capped=rank>=node.ranks,locked=save.level<unlockLevelForSkill(node);
+        const button=document.createElement("button");
+        button.type="button";
+        button.className=`skill-button${capped?" selected":""}${locked?" locked":""} ${arch}-skill`;
+        button.style.setProperty("--skin",locked?C.muted:branchColor(node.branch));
+        button.innerHTML=`<span class="skill-dot" aria-hidden="true"></span><span><span class="skin-name">${node.name} ${rank}/${node.ranks}</span><span class="skin-cost">${locked?`Level ${unlockLevelForSkill(node)}`:capped?"Maxed":`${format(cost.coins)} coins · ${format(cost.cores)} cores · ${node.copy}`}</span></span>`;
+        button.addEventListener("click",()=>buySkill(node));
+        container.append(button);
+      });
+    }
   }
   function branchColor(branch){return{Reflex:C.wake,Pulse:C.reward,Score:C.danger,Economy:C.perfect,Survival:C.ghost,Discovery:C.spine}[branch]||C.wake;}
   function unlockLevelForSkill(node){return node.branch==="Reflex"?5:node.branch==="Pulse"?8:node.branch==="Score"?12:node.branch==="Economy"?16:node.branch==="Survival"?24:32;}
@@ -789,7 +782,7 @@
     renderCosmeticGrid(els.boostGrid,BOOST_EFFECTS,"boosts","selectedBoost");
     els.extraCosmetics.replaceChildren();
     [...MENU_THEMES.map(c=>[c,"themes","selectedTheme"]),...SOUND_PACKS.map(c=>[c,"sounds","selectedSound"])].forEach(([item,bucket,selectedKey])=>{
-      const unlocked=Boolean(save.unlocked[bucket][item.id]);
+      const unlocked=Boolean(save.unlocked[bucket]?.[item.id]);
       const row=document.createElement("button");
       row.type="button";
       row.className=`system-item${save[selectedKey]===item.id?" done":""}`;
@@ -801,7 +794,7 @@
   function renderCosmeticGrid(container,items,bucket,selectedKey){
     container.replaceChildren();
     items.forEach(item=>{
-      const unlocked=Boolean(save.unlocked[bucket][item.id]);
+      const unlocked=Boolean(save.unlocked[bucket]?.[item.id]);
       const button=document.createElement("button");
       button.type="button";
       button.className=`skin-button${save[selectedKey]===item.id?" selected":""}${save.level<item.unlockLevel?" locked":""}`;
@@ -811,9 +804,9 @@
       container.append(button);
     });
   }
-  function priceText(item){if(item.rarity==="Mythic")return`${item.fragments} fragments · ${item.unlockLevel}+`;return`${format(item.cost)} coins${item.fragments?` · ${item.fragments} fragments`:""}` ;}
+  function priceText(item){if(item.rarity==="Mythic")return`${item.fragments} fragments · ${item.unlockLevel}+`;return`${format(item.cost)} coins${item.fragments?` · ${item.fragments} fragments`:""}`;}
   function handleCosmetic(item,bucket,selectedKey){
-    if(save.unlocked[bucket][item.id]){save[selectedKey]=item.id;playSound("select");toast(`${item.name} equipped`);persist();return;}
+    if(save.unlocked[bucket]?.[item.id]){save[selectedKey]=item.id;playSound("select");toast(`${item.name} equipped`);persist();return;}
     if(save.level<item.unlockLevel)return toast(`Unlocks at Level ${item.unlockLevel}`);
     if(save.coins<item.cost||save.fragments<item.fragments)return toast("Need more coins or fragments");
     save.coins-=item.cost;save.fragments-=item.fragments;
@@ -821,6 +814,7 @@
     playSound("buy");toast(`${item.name} unlocked`);persist();
   }
   function unlockCosmetic(bucket,id){if(!save.unlocked[bucket])return;save.unlocked[bucket][id]=true;normalizeSave(save);}
+
   function renderSocial(){
     els.socialPanel.replaceChildren();
     const zone=currentZone(),ghost=save.ghosts[zone.id],code=makeChallengeCode();
@@ -833,9 +827,126 @@
     });
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // DAILY / ECONOMY
-  // ─────────────────────────────────────────────────────────────────────────────
+  function renderArchive(){
+    const panel=document.getElementById("archivePanel");
+    panel.replaceChildren();
+    const entries=save.archive||[];
+    if(!entries.length){
+      panel.innerHTML=`<div class="archive-entry"><span class="archive-run-score" style="color:var(--muted)">No runs yet</span></div>`;
+      return;
+    }
+    const isNew=(e)=>Date.now()-e.timestamp<5000;
+    entries.forEach((entry,i)=>{
+      const div=document.createElement("div");
+      div.className=`archive-entry${i<3?" top-three":""}${isNew(entry)?" new":""}`;
+      div.innerHTML=`<span class="archive-rank${i===0?" gold":""}">${i+1}</span><div class="archive-run-info"><span class="archive-run-score">${format(entry.score)}</span><span class="archive-run-meta">${ZONES.find(z=>z.id===entry.zone)?.name||entry.zone} · Stage ${entry.stage} · ${new Date(entry.timestamp).toLocaleDateString()}</span><span class="archive-run-highlight">${entry.highlight}${entry.modifier!=="none"?` · ${entry.modifier}`:""}</span></div>`;
+      panel.append(div);
+    });
+  }
+
+  function renderCircuit(){
+    const{points,milestones}=save.circuit;
+    const maxPoints=milestones[milestones.length-1];
+    document.getElementById("circuitPoints").textContent=`${format(points)} SP`;
+    document.getElementById("circuitFill").style.width=`${Math.min(100,(points/maxPoints)*100)}%`;
+    const milestoneContainer=document.getElementById("circuitMilestones");
+    milestoneContainer.replaceChildren();
+    milestones.forEach(m=>{
+      const span=document.createElement("span");
+      span.className=`circuit-milestone${points>=m?" reached":""}`;
+      span.textContent=format(m);
+      milestoneContainer.append(span);
+    });
+  }
+
+  function renderSeasonTrack(){
+    const track=document.getElementById("seasonTrack");
+    track.replaceChildren();
+    const milestoneNodes=[5,10,15,20,25,30];
+    const rewards={1:"500 coins",5:"Rare skin",10:"5 Cores",15:"Epic skin",20:"Boost FX",25:"Legendary skin",30:"Mythic skin"};
+    for(let i=1;i<=30;i++){
+      const isMilestone=milestoneNodes.includes(i);
+      const unlocked=save.season.level>=i;
+      const claimed=save.season.level>i;
+      if(i>1){
+        const conn=document.createElement("div");
+        conn.className=`season-connector${claimed?" filled":""}`;
+        track.append(conn);
+      }
+      const node=document.createElement("div");
+      node.className=`season-node${isMilestone?" milestone":""}${unlocked?" unlocked":""}${claimed?" claimed":""}`;
+      node.innerHTML=`<div class="season-node-pip">${isMilestone?"★":i}</div><span class="season-node-label">${rewards[i]||""}</span>`;
+      track.append(node);
+    }
+  }
+
+  // ── Modifier screen ───────────────────────────────────────────────────────────
+
+  function showModifierScreen(){
+    selectedModifierCard=null;
+    const confirmBtn=document.getElementById("modifierConfirmBtn");
+    confirmBtn.disabled=true;
+    const screen=document.getElementById("modifierScreen");
+    screen.classList.add("active");
+    drawModifierCards();
+  }
+
+  function drawModifierCards(){
+    const cards=document.getElementById("modifierCards");
+    cards.replaceChildren();
+    const rng=mulberry32(Math.floor(Math.random()*2**32));
+    const buffs=MODIFIERS.filter(m=>m.type==="buff");
+    const curses=MODIFIERS.filter(m=>m.type==="curse");
+    const shifts=MODIFIERS.filter(m=>m.type==="shift");
+    const pick=(arr)=>arr[Math.floor(rng()*arr.length)];
+    const chosen=[pick(buffs),pick(curses),pick(shifts)];
+    chosen.forEach((mod,idx)=>{
+      const card=document.createElement("div");
+      card.className=`modifier-card ${mod.type}`;
+      card.tabIndex=0;
+      card.innerHTML=`<div class="modifier-type-tag">${mod.tag}</div><div class="modifier-name">${mod.name}</div><div class="modifier-desc">${mod.desc}</div><div class="modifier-footer"><button class="modifier-reroll" type="button">Reroll (20 ◆)</button></div>`;
+      card.addEventListener("click",()=>{
+        document.querySelectorAll(".modifier-card").forEach(c=>c.classList.remove("selected"));
+        card.classList.add("selected");
+        selectedModifierCard=mod;
+        document.getElementById("modifierConfirmBtn").disabled=false;
+      });
+      card.querySelector(".modifier-reroll").addEventListener("click",(e)=>{
+        e.stopPropagation();
+        if(save.cores<20){
+          if(canWatchAd("mission")){showPreviewAd("Reroll modifier").then(ok=>{if(ok){countAd("mission");replaceModifierCard(card,idx,mod.type,chosen);}});}
+          else toast("Need 20 cores to reroll");
+          return;
+        }
+        save.cores-=20;persist();
+        replaceModifierCard(card,idx,mod.type,chosen);
+      });
+      cards.append(card);
+    });
+  }
+
+  function replaceModifierCard(cardEl,idx,type,chosen){
+    const pool=MODIFIERS.filter(m=>m.type===type&&!chosen.some((c,ci)=>ci!==idx&&c.id===m.id));
+    const rng=mulberry32(Math.floor(Math.random()*2**32));
+    const newMod=pool[Math.floor(rng()*pool.length)];
+    chosen[idx]=newMod;
+    cardEl.querySelector(".modifier-name").textContent=newMod.name;
+    cardEl.querySelector(".modifier-desc").textContent=newMod.desc;
+    cardEl.querySelector(".modifier-type-tag").textContent=newMod.tag;
+    cardEl.className=`modifier-card ${newMod.type}`;
+    cardEl.classList.remove("selected");
+    if(selectedModifierCard===chosen[idx])selectedModifierCard=null;
+    document.getElementById("modifierConfirmBtn").disabled=true;
+    // rewire click
+    cardEl.onclick=()=>{
+      document.querySelectorAll(".modifier-card").forEach(c=>c.classList.remove("selected"));
+      cardEl.classList.add("selected");
+      selectedModifierCard=newMod;
+      document.getElementById("modifierConfirmBtn").disabled=false;
+    };
+  }
+
+  // ── Daily / Economy ───────────────────────────────────────────────────────────
 
   function claimDailyReward(){
     if(save.dailyClaimed===dayKey())return toast("Already claimed");
@@ -859,9 +970,7 @@
     unlockCosmetic("skins",locked[Math.floor(Math.random()*locked.length)].id);
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // GAME STATE
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ── Game state ────────────────────────────────────────────────────────────────
 
   function startRun(mode="classic"){
     ensureAudio();
@@ -873,7 +982,7 @@
     state.invincible=1.2+bonus("startShield")*0.5;
     state.reviveUsed=false;
     state.earnedExtraLife=skillRank("extra_life")>0;
-    state.shieldAvailable=skillRank("failsafe")>=5;
+    state.shieldAvailable=(skillRank("failsafe")>=5)&&(state.activeModifier!=="leaky_shield");
     state.runEnded=false;state.spawnTimer=0.8;
     state.stageIndex=1;state.stageTimer=0;state.stageHits=0;
     state.recordTimer=0;state.inputGhost=[];
@@ -883,17 +992,34 @@
     state.boostCinema=0;state.stageBeam=0;state.bossReveal=0;state.bossRevealName="";
     state.glitchTears=[];
     state.shake=0;state.swipeStartX=null;state.swipeStartLane=null;
+    state.nearMissStreak=0;state.nearMissCleanPassPending=false;
+    state.clutchActive=false;state.clutchTimer=0;
+    state.commitLock=0;state.glitchFlashTimer=0;state.glitchFlashActive=false;
+    state.heat=0;state.heatSurge=0;state.gravityPull=0;
+    state.bossPhase=0;state.bossPhaseTimer=0;state.bossWeakpointActive=false;
+    state.bossStaggerTimer=0;state.bossDefeatPhase=0;state.bossDefeatTimer=0;state.bossWeakpointCount=0;
+    state.patternBeat=0;state.spawnDensityMul=1.0;state.tremorPhase=0;
+    state.slipstreamTimer=0;state.nearMissCountMod=0;
     state.run=freshRunStats();
+    state.comboDecayRate=1.6;
 
     if(mode==="daily")state.seed=hashString(`daily-${dayKey()}-${save.selectedZone}`);
     else if(mode==="ghost"&&save.ghosts[save.selectedZone]){state.seed=save.ghosts[save.selectedZone].seed;state.ghostReplay=save.ghosts[save.selectedZone];}
     else if(mode==="challenge"&&save.challenge){state.seed=save.challenge.seed;state.ghostReplay=null;}
     else{state.seed=Math.floor(Math.random()*2**32);state.ghostReplay=null;}
     state.rng=mulberry32(state.seed);
+
+    state.onboarding=save.runs===0;
+    state.onboardingPhase=0;state.onboardingTimer=0;
+
+    // Difficulty recovery
+    const deathKey=`${save.selectedZone}_${state.stageIndex}`;
+    const consecutiveDeaths=save.stageDeathCounts[deathKey]||0;
+    state.spawnDensityMul=consecutiveDeaths>=3?0.92:1.0;
+
     setScreen("playing");
     addMessage("Stage 1",state.w/2,state.h*0.25,currentZone().color);
     updateHud();playSound("start");vibrate(20);
-    // Materialise lane lines on run start
     state.trackMaterialise=1.0;
   }
 
@@ -903,19 +1029,20 @@
   function endRun(){
     if(state.runEnded)return;
     state.runEnded=true;
-    // Death: spawn 12 teardrop fragments
+    if(state.clutchActive){
+      state.clutchActive=false;
+      document.getElementById("app").classList.remove("clutch-active");
+    }
     spawnDeathFragments();
-    // Hold for fragment settle, then show game-over after 1.8s
+    const deathKey=`${save.selectedZone}_${state.stageIndex}`;
+    save.stageDeathCounts[deathKey]=(save.stageDeathCounts[deathKey]||0)+1;
     setTimeout(()=>{
       finalizeRunRewards();applyRunToSave();updateAchievements();saveGhostIfBest();
-      persist();renderResults();setScreen("gameover");
+      earnCircuitPoints();earnSeasonXp();
+      persist();renderResults();runResultSequence();setScreen("gameover");
     },1800);
     playSound("crash");vibrate([40,40,80]);
   }
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // DEATH FRAGMENTS — 12 teardrop shards fly outward
-  // ─────────────────────────────────────────────────────────────────────────────
 
   function spawnDeathFragments(){
     const skin=selectedSkin();
@@ -923,23 +1050,13 @@
     for(let i=0;i<12;i++){
       const a=Math.random()*Math.PI*2;
       const s=80+Math.random()*120;
-      state.fragments.push({
-        x:state.playerX,y:state.playerY,
-        vx:Math.cos(a)*s,vy:Math.sin(a)*s-80,
-        rot:a,rotV:(Math.random()-0.5)*8,
-        life:0.9+Math.random()*0.3,
-        maxLife:0,  // set after push
-        color:skin.color,
-        trailLen:0,
-        scale:0.32+Math.random()*0.28,
-      });
-      state.fragments[state.fragments.length-1].maxLife=state.fragments[state.fragments.length-1].life;
+      const frag={x:state.playerX,y:state.playerY,vx:Math.cos(a)*s,vy:Math.sin(a)*s-80,rot:a,rotV:(Math.random()-0.5)*8,life:0.9+Math.random()*0.3,maxLife:0,color:skin.color,scale:0.32+Math.random()*0.28};
+      frag.maxLife=frag.life;
+      state.fragments.push(frag);
     }
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // RUN REWARDS / SAVE (unchanged logic)
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ── Rewards / save ────────────────────────────────────────────────────────────
 
   function finalizeRunRewards(){
     const finalScore=Math.floor(state.score);
@@ -953,6 +1070,7 @@
     state.run.fragmentsEarned=Math.floor(state.run.rareShards/3)+Math.floor(state.run.bossesDefeated/2)+bonus("blueprint");
     state.run.highlight=pickHighlight();
   }
+
   function applyRunToSave(){
     const oldDailyBest=save.stats.dailyBestScore||0;
     if(state.mode==="daily"&&state.run.score>oldDailyBest)state.run.dailyBest=1;
@@ -984,7 +1102,21 @@
     progressMissions(save.missions);progressWeeklies();
     if(state.mode==="ghost"&&save.ghosts[save.selectedZone]&&state.run.score>save.ghosts[save.selectedZone].score)save.stats.ghostWins+=1;
     if(state.mode==="challenge"&&save.challenge&&state.run.score>=save.challenge.score){save.stats.challengeWins=(save.stats.challengeWins||0)+1;toast("Challenge beaten");}
+
+    // Archive
+    save.archive=save.archive||[];
+    save.archive.push({
+      score:state.run.score,stage:state.run.stageReached,zone:save.selectedZone,
+      streak:state.nearMissStreak,highlight:state.run.highlight,
+      modifier:state.activeModifier||"none",timestamp:Date.now()
+    });
+    save.archive.sort((a,b)=>b.score-a.score);
+    save.archive=save.archive.slice(0,10);
+
+    // Reset modifier after run
+    state.activeModifier=null;
   }
+
   function progressMissions(missions){
     let completed=0;
     missions.forEach(m=>{
@@ -1042,7 +1174,6 @@
 
   function renderResults(){
     els.runMode.textContent=state.mode==="daily"?"Daily run":state.mode==="ghost"?"Ghost run":state.mode==="challenge"?"Challenge run":currentZone().name;
-    els.finalScore.textContent=format(state.run.score);
     els.earnedCoins.textContent=format(state.run.earnedCoins);
     els.finalShards.textContent=format(state.run.shards);
     els.finalCombo.textContent=`${state.run.maxCombo}x`;
@@ -1051,6 +1182,65 @@
     els.finalMoment.textContent=state.run.highlight;
     els.revive.disabled=state.reviveUsed||state.run.score<80||!canWatchAd("revive");
     els.doubleReward.disabled=state.run.doubled||!canWatchAd("double");
+  }
+
+  function runResultSequence(){
+    const sequence=[
+      [0,()=>{els.finalScore.textContent=format(state.run.score);}],
+      [200,()=>{
+        if(state.run.score>=save.best)document.getElementById("personalBestFlag").classList.add("show");
+      }],
+      [400,()=>{
+        const gap=save.best-state.run.score;
+        const pct=save.best>0?state.run.score/save.best:0;
+        const soCloseEl=document.getElementById("soClose");
+        soCloseEl.classList.remove("show","critical");
+        if(state.run.score>save.best){/* handled by PB flag */}
+        else if(pct>=0.97){
+          soCloseEl.textContent=`SO CLOSE — ${format(gap)} points away`;
+          soCloseEl.classList.add("show","critical");
+        } else if(pct>=0.92){
+          soCloseEl.textContent=`${format(gap)} points from your best`;
+          soCloseEl.classList.add("show");
+        }
+      }],
+      [600,()=>{
+        const el=document.getElementById("resultStreakHighlight");
+        if(state.nearMissStreak>=3){el.textContent=`Best streak: ${state.nearMissStreak} — ${getStreakLabel(state.nearMissStreak)}`;}
+      }],
+      [800,()=>{spawnCoinAnimation(state.run.earnedCoins);}],
+      [1000,()=>{revealResultGrid();}],
+      [2200,()=>{document.getElementById("restartBtn").classList.add("result-runback-cta");}],
+    ];
+    sequence.forEach(([delay,fn])=>setTimeout(fn,delay));
+  }
+
+  function spawnCoinAnimation(count){
+    const stage=document.getElementById("coinsStage");
+    stage.replaceChildren();
+    const visible=Math.min(count,12);
+    for(let i=0;i<visible;i++){
+      setTimeout(()=>{
+        const coin=document.createElement("span");
+        coin.className="coin-fly";
+        coin.textContent="◆";
+        coin.style.left=`${10+Math.random()*80}%`;
+        stage.append(coin);
+      },i*60);
+    }
+  }
+
+  function revealResultGrid(){
+    const children=document.querySelectorAll("#resultGrid > *");
+    children.forEach((child,i)=>setTimeout(()=>child.classList.add("revealed"),i*200));
+  }
+
+  function getStreakLabel(s){
+    if(s>=20)return"UNTOUCHABLE";
+    if(s>=10)return"GHOST LINE";
+    if(s>=5)return"RAZOR";
+    if(s>=3)return"THREADING";
+    return"STREAK";
   }
 
   async function reviveRun(){
@@ -1090,196 +1280,182 @@
     playSound("buy");persist();
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // BOOST — with cinema trigger
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ── Boost ─────────────────────────────────────────────────────────────────────
 
   function triggerBoost(){
     if(state.screen!=="playing"||state.energy<100)return;
+    if(state.activeModifier==="pacifist")return;
+    const dur=state.activeModifier==="afterburner"?5.0:3.6+bonus("boostDuration")*0.12;
     state.energy=0;
-    state.overdrive=3.6+bonus("boostDuration")*0.12;
+    state.overdrive=dur;
     state.combo=Math.max(state.combo,3);
     state.run.boosts+=1;
     state.run.maxCombo=Math.max(state.run.maxCombo,state.combo);
     state.shake=8;
-    state.boostCinema=2.0;  // cinema countdown
+    state.boostCinema=2.0;
     burst(state.playerX,state.playerY,C.boost,52,12);
     addMessage("Boost",state.playerX,state.playerY-60,C.boost);
     playSound("boost");vibrate(35);
     updateBoostRing();
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // GAME LOOP
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ── Obstacle spawning ─────────────────────────────────────────────────────────
 
-  function update(dt){
-    // Menu: update ambient ghost + particles only
-    if(state.screen==="menu"){
-      updateMenuGhost(dt);updateParticles(dt);return;
+  function pickObstacleType(stage){
+    if(state.onboarding){
+      if(state.onboardingPhase===0)return"bulkhead";
+      if(state.onboardingPhase===1)return"bulkhead";
+      if(state.onboardingPhase===2)return"convoy";
+      if(state.onboardingPhase===3)return"splice";
+      return"bulkhead";
     }
-    if(state.screen!=="playing"){updateParticles(dt);updateFragments(dt);return;}
-
-    const stage=currentStage();
-    const zonePressure=1+ZONES.findIndex(z=>z.id===save.selectedZone)*0.05;
-    state.time+=dt;state.stageTimer+=dt;
-    state.speed=(300+Math.min(520,state.time*8+state.score*0.055))*stage.speedMul*zonePressure;
-    state.meters+=state.speed*dt*0.03;state.run.meters=Math.floor(state.meters);
-    state.run.stageReached=state.stageIndex;
-    state.score+=dt*(11+state.speed*0.022)*(state.overdrive>0?1.8:1)*Math.min(8,1+state.combo*0.09)*scoreMultiplier();
-    state.run.score=Math.floor(state.score);
-
-    // Score counter pulse on integer increase
-    const prevDisplayed=Math.floor(state.displayedScore);
-    state.displayedScore+=(state.score-state.displayedScore)*Math.min(1,dt*12);
-    if(Math.floor(state.displayedScore)>prevDisplayed&&els.scoreStrong){
-      els.scoreStrong.classList.add("pulse");
-      setTimeout(()=>els.scoreStrong.classList.remove("pulse"),80);
+    const zone=save.selectedZone;
+    const weights={...(SPAWN_WEIGHTS[zone]||SPAWN_WEIGHTS.neon_city)};
+    if(state.nearMissStreak>=3){
+      weights.gate=(weights.gate||0)+15;
+      weights.splice=(weights.splice||0)+15;
+      weights.mirror=(weights.mirror||0)+15;
     }
-
-    state.comboTimer=Math.max(0,state.comboTimer-dt);
-    if(state.comboTimer===0&&state.combo>1)state.combo=Math.max(1,state.combo-dt*1.6);
-    state.overdrive=Math.max(0,state.overdrive-dt);
-    state.invincible=Math.max(0,state.invincible-dt);
-    state.shake=Math.max(0,state.shake-dt*22);
-    state.boostCinema=Math.max(0,state.boostCinema-dt);
-    state.stageBeam=Math.max(0,state.stageBeam-dt);
-    state.bossReveal=Math.max(0,state.bossReveal-dt);
-    if(state.trackMaterialise!==undefined)state.trackMaterialise=Math.max(0,state.trackMaterialise-dt*2);
-
-    state.playerX+=(laneCenter(state.targetLane)-state.playerX)*Math.min(1,dt*(16+bonus("movement")*0.5));
-    recordGhost(dt);
-
-    // Glitch tears
-    if(save.selectedZone==="glitch_dimension"){
-      state.glitchTears=state.glitchTears.filter(t=>{t.life-=dt;return t.life>0;});
-      if(state.rng()>1-dt*0.4){
-        state.glitchTears.push({y:Math.random()*state.h,dx:(Math.random()-0.5)*16,life:0.08+Math.random()*0.06,h:8+Math.random()*10});
-      }
-    }
-
-    state.spawnTimer-=dt;
-    if(state.spawnTimer<=0){
-      spawnPattern(stage);
-      const pressure=Math.min(0.62,state.stageIndex*0.012+state.time*0.002);
-      state.spawnTimer=0.88-pressure+state.rng()*0.2;
-    }
-    if(state.stageTimer>=stage.duration)advanceStage(stage);
-    updateObstacles(dt);updateShards(dt);updateParticles(dt);updateWakes(dt);updateFragments(dt);
-    maybeAddSpeedSparks(dt,stage);
-    updateHud();
+    const total=Object.values(weights).reduce((a,b)=>a+b,0);
+    let r=state.rng()*total;
+    for(const[type,w] of Object.entries(weights)){r-=w;if(r<=0)return type;}
+    return"bulkhead";
   }
-
-  // ── Ambient menu ghost ────────────────────────────────────────────────────────
-  function updateMenuGhost(dt){
-    if(!menuGhost.active)return;
-    menuGhost.time=(menuGhost.time||0)+dt;
-    // Drift across lanes slowly
-    const targetLane=Math.floor(2+Math.sin(menuGhost.time*0.4)*1.8);
-    const clampedLane=clamp(targetLane,0,4);
-    const targetX=laneCenter(clampedLane);
-    menuGhost.x+=(targetX-menuGhost.x)*Math.min(1,dt*3);
-  }
-
-  function recordGhost(dt){
-    state.recordTimer+=dt;
-    if(state.recordTimer<0.25)return;
-    state.recordTimer=0;
-    state.inputGhost.push([Number(state.time.toFixed(2)),laneFromX(state.playerX)]);
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // STAGE ADVANCE + BOSS REVEAL CINEMA
-  // ─────────────────────────────────────────────────────────────────────────────
-
-  function advanceStage(stage){
-    state.run.stagesCleared+=1;
-    state.stageBeam=0.4;  // trigger stage-clear beam
-    if(state.stageHits===0){
-      state.run.perfectStages+=1;
-      state.score+=Math.floor((250+state.stageIndex*15)*(1+bonus("perfectScore")*0.07));
-      state.energy=Math.min(100,state.energy+energyGain(8));
-      addMessage("Perfect",state.w/2,state.h*0.3,C.perfect);
-    }
-    if(stage.kind==="boss"){
-      state.run.bossesDefeated+=1;
-      state.score+=Math.floor((1000+state.stageIndex*60)*(1+bonus("bossScore")*0.08));
-      burst(state.w/2,state.h*0.35,currentZone().color,70,12);
-      playSound("buy");
-    }
-    state.stageIndex+=1;state.stageTimer=0;state.stageHits=0;
-    // Boss reveal for next stage if it's a boss
-    const nextStage=currentStage();
-    if(nextStage.kind==="boss"){
-      state.bossReveal=1.4;
-      state.bossRevealName=nextStage.name;
-    }
-    addMessage(`Stage ${state.stageIndex}`,state.w/2,state.h*0.25,currentZone().color);
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // OBSTACLE SPAWNING — 4 visual families
-  // Bulkhead (wall) · Spine (elite) · Crawler (stagger) · Sentinel (boss)
-  // ─────────────────────────────────────────────────────────────────────────────
 
   function spawnPattern(stage){
-    const roll=state.rng();
-    if(stage.kind==="boss"&&roll<0.65)return spawnBossWave();
-    if(stage.kind==="mini"&&roll<0.6)return spawnCrawlerChain();
-    if(stage.kind==="fever"&&roll<0.7)return spawnShardLine();
-    if(stage.kind==="elite"&&roll<0.45)return spawnSpine();
-    if(stage.kind==="chaos"&&roll<0.35)return spawnChaos();
-    if(roll<0.42)spawnBulkhead();
-    else if(roll<0.72)spawnDouble();
-    else spawnCrawlerChain();
+    if(state.spawnDensityMul<1&&state.rng()>state.spawnDensityMul)return;
+
+    // Pattern beat: 0-2 tension, 3 relief
+    state.patternBeat=(state.patternBeat+1)%4;
+
+    if(stage.kind==="boss"){
+      spawnBossWave();
+      return;
+    }
+
+    if(state.patternBeat===3){
+      // Relief beat: spawn shard line only
+      const lane=Math.floor(state.rng()*state.lanes);
+      for(let i=0;i<3;i++)spawnShard(lane,-60-i*55);
+      return;
+    }
+
+    const type=pickObstacleType(stage);
+    const bossWeakpoint=stage.kind==="boss"&&state.bossPhase>=2&&state.bossWeakpointCount%4===3;
+    spawnByType(type,stage,bossWeakpoint);
+
+    if(stage.kind!=="boss")state.bossWeakpointCount+=1;
   }
 
-  function spawnBulkhead(){
-    const gap=Math.floor(state.rng()*state.lanes);
+  function spawnByType(type,stage,bossWeakpoint){
+    switch(type){
+      case"bulkhead":return spawnBulkhead(bossWeakpoint);
+      case"splice":return spawnSplice();
+      case"drift":return spawnDrift();
+      case"mirror":return spawnMirror();
+      case"phantom":return spawnPhantom();
+      case"pulse":return spawnPulse();
+      case"convoy":return spawnConvoy();
+      case"gate":return spawnGate(bossWeakpoint);
+      case"echoes":return spawnEchoes();
+      case"gravity_well":return spawnGravityWell();
+      default:return spawnBulkhead(false);
+    }
+  }
+
+  function spawnBulkhead(isWeakpoint){
+    let gap;
+    if(state.onboarding&&state.onboardingPhase===0)gap=2;
+    else if(state.onboarding&&state.onboardingPhase===1)gap=state.patternBeat%2===0?1:3;
+    else gap=Math.floor(state.rng()*state.lanes);
     const lanes=[];
     for(let i=0;i<state.lanes;i++)if(i!==gap)lanes.push(i);
-    state.obstacles.push({lanes,y:-48,h:30,kind:"bulkhead",passed:false,hit:false,elite:false});
+    const ob={type:"bulkhead",lanes,y:-48,h:30,nearMissCredit:false,passed:false,hit:false,elite:false};
+    if(isWeakpoint){ob.isWeakpoint=true;ob.gapLane=gap;}
+    state.obstacles.push(ob);
     if(state.rng()>0.16)spawnShard(gap,-112);
   }
 
-  function spawnDouble(){
-    const first=Math.floor(state.rng()*state.lanes);
-    let second=Math.floor(state.rng()*state.lanes);
-    if(second===first)second=(second+2)%state.lanes;
-    state.obstacles.push({lanes:[first,second],y:-44,h:34,kind:"bulkhead",passed:false,hit:false,elite:false});
-    const safe=[0,1,2,3,4].filter(l=>l!==first&&l!==second);
+  function spawnSplice(){
+    const pairs=[[1,4],[0,3],[1,4]];
+    const pair=pairs[Math.floor(state.rng()*pairs.length)];
+    state.obstacles.push({type:"splice",lanes:[...pair],y:-44,h:34,nearMissCredit:false,passed:false,hit:false,elite:false});
+    const safe=[0,1,2,3,4].filter(l=>!pair.includes(l));
     spawnShard(safe[Math.floor(state.rng()*safe.length)],-116);
   }
 
-  function spawnCrawlerChain(){
-    // Crawlers: low, wide, semi-transparent, 3 in a chain
-    const lane=Math.floor(state.rng()*state.lanes);
-    const dir=state.rng()>0.5?1:-1;
-    for(let i=0;i<3;i++)state.obstacles.push({lanes:[clamp(lane+i*dir,0,state.lanes-1)],y:-56-i*72,h:18,kind:"crawler",passed:false,hit:false,elite:false});
-    if(state.rng()>0.25)spawnShard(clamp(lane-dir,0,state.lanes-1),-250);
+  function spawnDrift(){
+    const startDir=state.rng()>0.5?0:4;
+    const speedMul=currentStage().speedMul;
+    const ob={type:"drift",lanes:[startDir],y:-44,h:30,nearMissCredit:false,passed:false,hit:false,elite:false,
+      laneFloat:startDir,driftAge:0,driftDuration:2.4/speedMul,driftDir:startDir===0?1:-1};
+    state.obstacles.push(ob);
   }
 
-  function spawnSpine(){
-    // Spine: tall narrow rhombus, violet, elite
+  function spawnMirror(){
+    const speedMul=currentStage().speedMul;
+    const travelTime=Math.abs(state.playerY-(-50))/state.speed;
+    const ob={type:"mirror",lanes:[0,4],y:-50,h:30,nearMissCredit:false,passed:false,hit:false,elite:false,
+      progress:0,travelDuration:travelTime,leftLane:0,rightLane:4};
+    state.obstacles.push(ob);
+  }
+
+  function spawnPhantom(){
     const lane=Math.floor(state.rng()*state.lanes);
-    state.obstacles.push({lanes:[lane],y:-56,h:52,kind:"spine",passed:false,hit:false,elite:true});
-    spawnShard((lane+2)%state.lanes,-130);
+    state.obstacles.push({type:"phantom",lanes:[lane],y:-44,h:30,nearMissCredit:false,passed:false,hit:false,elite:false,
+      phantomAge:0,opacity:1});
+  }
+
+  function spawnPulse(){
+    const lane=Math.floor(state.rng()*state.lanes);
+    state.obstacles.push({type:"pulse",lanes:[lane],y:-44,h:30,nearMissCredit:false,passed:false,hit:false,elite:false,
+      pulsePhase:"hold",holdTimer:1.2/currentStage().speedMul,warnTimer:0.08,jumpWarning:false,pulseMoving:false});
+  }
+
+  function spawnConvoy(){
+    const lane=Math.floor(state.rng()*state.lanes);
+    for(let i=0;i<3;i++){
+      const ob={type:"convoy",lanes:[lane],y:-44-i*80,h:24,nearMissCredit:false,passed:false,hit:false,elite:false};
+      if(i===0)ob.convoyLead=true;
+      state.obstacles.push(ob);
+    }
+  }
+
+  function spawnGate(isWeakpoint){
+    // Two obstacles with exactly 1 empty lane between them
+    const pairs=[[0,2],[1,3],[2,4],[0,3],[1,4]];
+    const pair=pairs[Math.floor(state.rng()*pairs.length)];
+    const allBlocked=[];
+    pair.forEach(p=>{
+      for(let i=p;i<p+1;i++)allBlocked.push(i);
+    });
+    const gapLane=Math.floor((pair[0]+pair[1])/2);
+    const ob={type:"gate",lanes:[pair[0],pair[1]],y:-44,h:30,nearMissCredit:false,passed:false,hit:false,elite:false,
+      gapLane,gapHighlightTimer:0.2,isWeakpoint};
+    if(isWeakpoint){ob.weakpointPhase=state.bossPhase;}
+    state.obstacles.push(ob);
+    spawnShard(gapLane,-120);
+  }
+
+  function spawnEchoes(){
+    const lane=Math.floor(state.rng()*state.lanes);
+    const fakeLane=(lane+2)%state.lanes;
+    state.obstacles.push({type:"echoes",lanes:[lane],y:-44,h:30,nearMissCredit:false,passed:false,hit:false,elite:false,fake:false});
+    state.obstacles.push({type:"echoes",lanes:[fakeLane],y:-44,h:30,nearMissCredit:false,passed:false,hit:false,elite:false,fake:true});
+  }
+
+  function spawnGravityWell(){
+    state.obstacles.push({type:"gravity_well",lanes:[],y:state.h*0.4,h:0,nearMissCredit:false,passed:false,hit:false,elite:false,
+      age:0,maxAge:6});
   }
 
   function spawnBossWave(){
-    // Sentinels: triple concentric rings
     const gap=Math.floor(state.rng()*state.lanes);
     for(let row=0;row<3;row++){
       const lanes=[];
       for(let i=0;i<state.lanes;i++)if(i!==((gap+row)%state.lanes))lanes.push(i);
-      state.obstacles.push({lanes,y:-56-row*96,h:36,kind:"sentinel",passed:false,hit:false,elite:row===2});
+      state.obstacles.push({type:"bulkhead",lanes,y:-56-row*96,h:36,nearMissCredit:false,passed:false,hit:false,elite:row===2});
     }
-  }
-
-  function spawnChaos(){spawnDouble();if(state.rng()>0.5)spawnSpine();}
-  function spawnShardLine(){
-    const lane=Math.floor(state.rng()*state.lanes);
-    for(let i=0;i<4;i++)spawnShard(lane,-90-i*58);
   }
 
   function spawnShard(lane,y){
@@ -1288,138 +1464,266 @@
     state.shards.push({lane,y,pulse:state.rng()*Math.PI*2,value:rare?3:state.overdrive>0?2:1,rare});
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // OBSTACLE UPDATE — near-miss wake + lane flash
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ── Obstacle update ───────────────────────────────────────────────────────────
 
   function updateObstacles(dt){
     const playerLane=laneFromX(state.playerX);
+    const w=nearMissWindow();
+    let cleanPassDetected=false;
+    let nearMissThisFrame=false;
+
     for(const ob of state.obstacles){
+      // Type-specific per-frame updates
+      if(ob.type==="gravity_well"){
+        ob.age+=dt;
+        if(ob.age>=ob.maxAge)ob.hit=true;
+        // Gravity pull applied in update()
+        continue;
+      }
+      if(ob.type==="drift"){
+        ob.driftAge+=dt;
+        ob.laneFloat=ob.driftDir===1?(ob.driftAge/ob.driftDuration)*4:4-(ob.driftAge/ob.driftDuration)*4;
+        ob.laneFloat=clamp(ob.laneFloat,0,4);
+        ob.lanes=[Math.round(ob.laneFloat)];
+      }
+      if(ob.type==="mirror"){
+        ob.progress=clamp(ob.progress+dt/Math.max(0.1,ob.travelDuration),0,1);
+        ob.leftLane=Math.round(ob.progress*2);
+        ob.rightLane=4-Math.round(ob.progress*2);
+        ob.lanes=[ob.leftLane,ob.rightLane];
+      }
+      if(ob.type==="phantom"){
+        ob.phantomAge+=dt;
+        if(ob.phantomAge>0.34&&ob.phantomAge<0.74)ob.opacity=0.4;
+        else ob.opacity=1;
+      }
+      if(ob.type==="pulse"){
+        if(ob.pulsePhase==="hold"){
+          ob.holdTimer-=dt;
+          if(ob.holdTimer<=0.08&&!ob.jumpWarning){ob.jumpWarning=true;ob.pulsePhase="warning";}
+          if(ob.holdTimer<=0){
+            ob.jumpWarning=false;ob.pulsePhase="moving";ob.pulseMoving=true;
+            const dir=state.rng()>0.5?1:-1;
+            ob.lanes=[clamp(ob.lanes[0]+dir,0,4)];
+          }
+        }
+        if(ob.pulsePhase==="moving"){ob.pulseMoving=false;ob.pulsePhase="hold";}
+      }
+      if(ob.type==="gate"&&ob.gapHighlightTimer>0)ob.gapHighlightTimer-=dt;
+
+      if(state.bossStaggerTimer>0){
+        // Obstacles freeze during stagger
+        continue;
+      }
+
       ob.y+=state.speed*dt;
+
+      // Near miss / passed detection
       if(!ob.passed&&ob.y>state.playerY+38){
         ob.passed=true;
-        const close=ob.lanes.some(l=>Math.abs(l-playerLane)===1);
-        if(close){
-          state.run.nearMisses+=1;gainCombo(1);
-          state.energy=Math.min(100,state.energy+energyGain(4));
-          // WAKE STROKE — the signature near-miss visual
-          spawnWake(playerLane,ob.lanes.find(l=>Math.abs(l-playerLane)===1));
-          // Lane-edge flash
-          spawnLaneFlash(playerLane);
-          // First near-miss of a run: wake is 50% larger (taught in code via wake.firstRun)
-          if(state.run.nearMisses===1&&state.wakes.length>0)state.wakes[state.wakes.length-1].scale=1.5;
-          if(state.run.nearMisses%10===0)markViral("Near Miss Reel");
-          updateBoostRing();
+        if(ob.type==="gravity_well")continue;
+
+        const adjacentLanes=ob.lanes.filter(l=>Math.abs(l-playerLane)===1);
+        const inLane=ob.lanes.includes(playerLane);
+        const noneAdjacent=adjacentLanes.length===0&&!inLane;
+        const withinWindow=Math.abs(ob.y-state.playerY)<=w+38;
+
+        if(adjacentLanes.length>0&&withinWindow&&!ob.nearMissCredit&&!inLane){
+          ob.nearMissCredit=true;
+          nearMissThisFrame=true;
+          // Precision modifier check
+          let distOk=true;
+          if(state.activeModifier==="precision"){
+            const closestLane=adjacentLanes.reduce((prev,l)=>Math.abs(laneCenter(l)-state.playerX)<Math.abs(laneCenter(prev)-state.playerX)?l:prev,adjacentLanes[0]);
+            const dist=calcNearMissDistance(playerLane,closestLane);
+            if(dist>8){distOk=false;cleanPassDetected=true;}
+          }
+          if(distOk){
+            processNearMiss(ob,playerLane,adjacentLanes);
+          }
+        } else if(noneAdjacent){
+          cleanPassDetected=true;
         }
       }
-      if(ob.hit)continue;
+    }
+
+    // Apply clean pass / streak logic
+    if(cleanPassDetected&&!nearMissThisFrame&&state.nearMissStreak>0){
+      state.nearMissStreak=0;
+      updateStreakHud();
+      if(state.clutchActive){
+        state.clutchActive=false;
+        state.clutchTimer=0;
+        document.getElementById("app").classList.remove("clutch-active");
+        state.run.viralMoments++;
+      }
+      // Pulse Nexus heat increase
+      if(save.selectedZone==="pulse_nexus"){
+        state.heat=Math.min(100,state.heat+4);
+      }
+    }
+
+    // Hit detection
+    for(const ob of state.obstacles){
+      if(ob.hit||ob.passed)continue;
+      if(ob.type==="gravity_well")continue;
+      if(ob.type==="echoes"&&ob.fake){
+        if(ob.lanes.includes(playerLane)&&Math.abs(ob.y-state.playerY)<34)ob.hit=true;
+        continue;
+      }
       if(ob.lanes.includes(playerLane)&&Math.abs(ob.y-state.playerY)<34){
-        if(state.overdrive>0&&!ob.elite||state.overdrive>1.2||state.invincible>0){
+        if(state.clutchActive){
+          // Clutch mode: no shield, run ends
+          state.shake=16;endRun();return;
+        }
+        if(state.overdrive>0&&(!ob.elite||state.overdrive>1.2)||state.invincible>0){
           ob.hit=true;
           const breakScore=35*Math.max(1,state.combo)*(1+bonus("boostScore")*0.06);
           state.score+=breakScore;state.run.hazardsBroken+=1;
           state.energy=Math.min(100,state.energy+energyGain(2));
-          // Implosion-then-burst shatter
           spawnImplodeBurst(laneCenter(playerLane),ob.y,selectedSkin().accent);
           playSound("break");
           updateBoostRing();
         } else if(consumeSafety()){
           ob.hit=true;state.stageHits+=1;state.run.shieldHits+=1;
           state.invincible=1.2;state.shake=10;
-          markViral("Shield Clutch");
-          shieldFlash();
+          markViral("Shield Clutch");shieldFlash();
         } else {
           state.shake=16;endRun();return;
         }
       }
     }
+
     state.obstacles=state.obstacles.filter(ob=>ob.y<state.h+96&&!ob.hit);
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // WAKE STROKES — near-miss brushmarks
-  // ─────────────────────────────────────────────────────────────────────────────
+  function processNearMiss(ob,playerLane,adjacentLanes){
+    state.run.nearMisses+=1;
+    gainCombo(1);
+
+    // Energy (not for ghost_run modifier)
+    if(state.activeModifier!=="ghost_run"){
+      const eg=energyGain(4);
+      state.energy=Math.min(100,state.energy+eg);
+    } else {
+      // ghost_run: score instead
+      state.score+=state.combo*80;
+    }
+
+    // Boss weakpoint check
+    if(ob.isWeakpoint||ob.type==="gate"&&ob.isWeakpoint){
+      const mul=state.bossPhase===3?5:3;
+      state.energy=Math.min(100,state.energy+energyGain(mul*4));
+      if(state.bossPhase===3){
+        state.bossStaggerTimer=1.2;
+        const wf=document.getElementById("weakpointFlash");
+        wf.classList.add("fire");
+        setTimeout(()=>wf.classList.remove("fire"),250);
+      }
+    }
+
+    // Surgeon perfect_stage flavor: distance check
+    const closestLane=adjacentLanes.reduce((prev,l)=>Math.abs(laneCenter(l)-state.playerX)<Math.abs(laneCenter(prev)-state.playerX)?l:prev,adjacentLanes[0]);
+    const dist=calcNearMissDistance(playerLane,closestLane);
+    if(dist<=10&&bonus("perfectScore")>0){
+      state.energy=Math.min(100,state.energy+energyGain(4));
+      gainCombo(1);
+      addMessage("PERFECT",state.playerX,state.playerY-80,C.perfect);
+    }
+
+    // Wake stroke
+    spawnWake(playerLane,closestLane);
+    spawnLaneFlash(playerLane);
+    if(state.run.nearMisses===1&&state.wakes.length>0)state.wakes[state.wakes.length-1].scale=1.5;
+    if(state.run.nearMisses%10===0)markViral("Near Miss Reel");
+
+    // Modifier hooks
+    const mod=state.activeModifier;
+    if(mod==="slipstream")state.slipstreamTimer=3.0;
+    if(mod==="overclock"){
+      state.nearMissCountMod=(state.nearMissCountMod||0)+1;
+      if(state.nearMissCountMod%10===0)state.overdrive+=1.0;
+    }
+
+    // Near miss streak
+    state.nearMissStreak++;
+    updateStreakHud();
+
+    // Pulse Nexus: near miss reduces heat
+    if(save.selectedZone==="pulse_nexus")state.heat=Math.max(0,state.heat-20);
+
+    // Clutch mode activation / extension
+    if(state.nearMissStreak===10&&!state.clutchActive){
+      activateClutch();
+    } else if(state.nearMissStreak>=10&&state.clutchActive){
+      state.clutchTimer=Math.min(18,state.clutchTimer+1.4);
+      if(state.nearMissStreak>=20){
+        state.clutchTimer=6; // refresh
+        state.spawnTimer=Math.max(0,state.spawnTimer)*0.9;
+      }
+    }
+
+    // Haptics for high streak
+    if(state.nearMissStreak>=5)vibrate([10]);
+
+    updateBoostRing();
+  }
+
+  function calcNearMissDistance(playerLane,obstacleLane){
+    const px=laneCenter(playerLane);
+    const ox=laneCenter(obstacleLane);
+    return Math.abs(px-ox)-state.laneW;
+  }
+
+  function activateClutch(){
+    state.clutchActive=true;
+    state.clutchTimer=6;
+    document.getElementById("app").classList.add("clutch-active");
+    addMessage("CLUTCH",state.w/2,state.h*0.3,C.wake);
+    vibrate([30,20,30]);
+  }
+
+  function updateStreakHud(){
+    const streakDisplay=document.getElementById("streakDisplay");
+    document.getElementById("streakCount").textContent=state.nearMissStreak;
+    document.getElementById("streakLabel").textContent=getStreakLabel(state.nearMissStreak);
+    streakDisplay.classList.toggle("visible",state.screen==="playing"&&state.nearMissStreak>0);
+    ["streak-state-threading","streak-state-razor","streak-state-ghost-line","streak-state-untouchable"].forEach(c=>streakDisplay.classList.remove(c));
+    if(state.nearMissStreak>=20)streakDisplay.classList.add("streak-state-untouchable");
+    else if(state.nearMissStreak>=10)streakDisplay.classList.add("streak-state-ghost-line");
+    else if(state.nearMissStreak>=5)streakDisplay.classList.add("streak-state-razor");
+    else if(state.nearMissStreak>=3)streakDisplay.classList.add("streak-state-threading");
+    // Combo decay rate
+    state.comboDecayRate=state.nearMissStreak>=3&&state.nearMissStreak<10?0.8:1.6;
+    if(state.activeModifier==="momentum"&&state.overdrive>0)state.comboDecayRate=0;
+  }
+
+  // ── Wake strokes ──────────────────────────────────────────────────────────────
 
   function spawnWake(playerLane,obstacleLane){
     const px=laneCenter(playerLane);
     const ox=laneCenter(obstacleLane);
     const dir=ox>px?1:-1;
-    state.wakes.push({
-      x:px,y:state.playerY,
-      cx:px+dir*state.laneW*0.5,cy:state.playerY-40,
-      ex:px+dir*state.laneW*0.9,ey:state.playerY-90,
-      life:0.4,maxLife:0.4,
-      scale:1.0,
-      color:C.wake,
-    });
-    // If high combo, secondary amber afterglow
+    const maxLife=state.clutchActive?0.8:0.4;
+    state.wakes.push({x:px,y:state.playerY,cx:px+dir*state.laneW*0.5,cy:state.playerY-40,ex:px+dir*state.laneW*0.9,ey:state.playerY-90,life:maxLife,maxLife,scale:1.0,color:C.wake});
     if(state.combo>=10){
-      state.wakes.push({
-        x:px,y:state.playerY,
-        cx:px+dir*state.laneW*0.5,cy:state.playerY-38,
-        ex:px+dir*state.laneW*0.9,ey:state.playerY-88,
-        life:0.4,maxLife:0.4,
-        scale:1.0,
-        color:C.reward,
-        secondary:true,
-      });
+      state.wakes.push({x:px,y:state.playerY,cx:px+dir*state.laneW*0.5,cy:state.playerY-38,ex:px+dir*state.laneW*0.9,ey:state.playerY-88,life:maxLife,maxLife,scale:1.0,color:C.reward,secondary:true});
     }
-    // Keep within max
     if(state.wakes.length>PERF.maxWakes)state.wakes=state.wakes.slice(-PERF.maxWakes);
   }
 
   function spawnLaneFlash(playerLane){
-    // Flash the two adjacent lanes at the track edge
-    for(const dl of [-1,1]){
+    for(const dl of[-1,1]){
       const fl=playerLane+dl;
       if(fl>=0&&fl<state.lanes){
-        state.particles.push({
-          x:laneCenter(fl),y:state.playerY,
-          vx:0,vy:0,
-          life:0.1,size:state.laneW*0.9,
-          color:C.wake,
-          isFlash:true,
-        });
+        state.particles.push({x:laneCenter(fl),y:state.playerY,vx:0,vy:0,life:0.1,size:state.laneW*0.9,color:C.wake,isFlash:true});
       }
     }
   }
 
-  function updateWakes(dt){
-    state.wakes=state.wakes.filter(w=>{w.life-=dt;return w.life>0;});
-  }
+  function updateWakes(dt){state.wakes=state.wakes.filter(w=>{w.life-=dt;return w.life>0;});}
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // IMPLOSION BURST — obstacle shatter when Boost hits
-  // ─────────────────────────────────────────────────────────────────────────────
-
-  function spawnImplodeBurst(x,y,color){
-    // 80ms: fragments fly inward (negative velocity toward center)
-    for(let i=0;i<8;i++){
-      const a=Math.random()*Math.PI*2;
-      state.particles.push({x:x+Math.cos(a)*32,y:y+Math.sin(a)*32,vx:-Math.cos(a)*180,vy:-Math.sin(a)*180,life:0.08,size:3,color:C.danger,isImplosion:true});
-    }
-    // Then 8 radial lines burst outward
-    for(let i=0;i<8;i++){
-      const a=(i/8)*Math.PI*2;
-      state.sparks.push({x,y:y,vx:Math.cos(a)*220,vy:Math.sin(a)*220,vy2:0,life:0.12,color:C.boost,isLine:true,len:40});
-    }
-  }
-
-  function shieldFlash(){
-    // White concentric ring
-    state.particles.push({x:state.playerX,y:state.playerY,vx:0,vy:0,life:0.4,size:80,color:C.ghost,isRing:true,ringR:0,ringMaxR:80});
-  }
-
-  function consumeSafety(){
-    if(state.shieldAvailable){state.shieldAvailable=false;return true;}
-    if(state.earnedExtraLife){state.earnedExtraLife=false;return true;}
-    if(currentStage().kind==="boss"&&bonus("bossGuard")>0&&state.run.shieldHits<bonus("bossGuard"))return true;
-    return false;
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // SHARD UPDATE
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ── Shard update ──────────────────────────────────────────────────────────────
 
   function updateShards(dt){
     const playerLane=laneFromX(state.playerX);
@@ -1433,7 +1737,6 @@
         state.energy=Math.min(100,state.energy+energyGain(11*shard.value));
         state.score+=42*value*Math.max(1,state.combo*0.5);
         gainCombo(1);
-        // 3-ring expand feedback for rare; single ring for common
         spawnShardRings(laneCenter(shard.lane),shard.y,shard.rare);
         playSound("shard");
         updateBoostRing();
@@ -1450,9 +1753,7 @@
     }
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // COMBO
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ── Combo ─────────────────────────────────────────────────────────────────────
 
   function gainCombo(amount){
     state.combo=Math.min(maxComboCap(),Math.floor(state.combo+amount));state.comboTimer=2.2;
@@ -1464,9 +1765,7 @@
     addMessage(label,state.playerX,state.playerY-76,C.reward);
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // PARTICLES / SPARKS / FRAGMENTS
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ── Particles / sparks ────────────────────────────────────────────────────────
 
   function updateParticles(dt){
     for(const p of state.particles){
@@ -1474,10 +1773,7 @@
       if(p.isRing){p.ringR+=(p.ringMaxR-p.ringR)*dt*8;}
       p.life-=dt;
     }
-    for(const s of state.sparks){
-      s.x+=(s.vx||0)*dt;s.y+=(s.vy||0)*dt;
-      s.life-=dt;
-    }
+    for(const s of state.sparks){s.x+=(s.vx||0)*dt;s.y+=(s.vy||0)*dt;s.life-=dt;}
     for(const m of state.messages){m.y-=30*dt;m.life-=dt;}
     state.particles=state.particles.filter(p=>p.life>0).slice(-PERF.maxParticles);
     state.sparks=state.sparks.filter(s=>s.life>0).slice(-PERF.maxSparks);
@@ -1486,10 +1782,7 @@
 
   function updateFragments(dt){
     for(const f of state.fragments){
-      f.x+=f.vx*dt;f.y+=f.vy*dt;
-      f.vy+=90*dt;
-      f.rot+=f.rotV*dt;
-      f.life-=dt;
+      f.x+=f.vx*dt;f.y+=f.vy*dt;f.vy+=90*dt;f.rot+=f.rotV*dt;f.life-=dt;
     }
     state.fragments=state.fragments.filter(f=>f.life>0);
   }
@@ -1509,10 +1802,320 @@
   }
 
   function addMessage(text,x,y,color){state.messages.push({text,x,y,color,life:0.9});}
+  function spawnImplodeBurst(x,y,color){
+    for(let i=0;i<8;i++){
+      const a=Math.random()*Math.PI*2;
+      state.particles.push({x:x+Math.cos(a)*32,y:y+Math.sin(a)*32,vx:-Math.cos(a)*180,vy:-Math.sin(a)*180,life:0.08,size:3,color:C.danger,isImplosion:true});
+    }
+    for(let i=0;i<8;i++){
+      const a=(i/8)*Math.PI*2;
+      state.sparks.push({x,y,vx:Math.cos(a)*220,vy:Math.sin(a)*220,life:0.12,color:C.boost,isLine:true,len:40});
+    }
+  }
+  function shieldFlash(){
+    state.particles.push({x:state.playerX,y:state.playerY,vx:0,vy:0,life:0.4,size:80,color:C.ghost,isRing:true,ringR:0,ringMaxR:80});
+  }
+  function consumeSafety(){
+    if(state.activeModifier==="thin_ice")return false; // thin ice = instant death
+    if(state.shieldAvailable){state.shieldAvailable=false;return true;}
+    if(state.earnedExtraLife){state.earnedExtraLife=false;return true;}
+    if(currentStage().kind==="boss"&&bonus("bossGuard")>0&&state.run.shieldHits<bonus("bossGuard"))return true;
+    return false;
+  }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // DRAWING
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ── Boss system ───────────────────────────────────────────────────────────────
+
+  function initBossStage(stage){
+    state.bossPhase=1;state.bossPhaseTimer=0;state.bossWeakpointActive=false;
+    state.bossStaggerTimer=0;state.bossWeakpointCount=0;
+    const name=stage.name.replace("Boss:","").trim();
+    document.getElementById("bossName").textContent=name;
+    document.getElementById("bossHud").classList.add("visible");
+    updateBossPips();
+    state.bossRevealName=stage.name;state.bossReveal=1.4;
+    addMessage(name,state.w/2,state.h*0.3,C.danger);
+  }
+
+  function updateBossPips(){
+    const pips=["bossPip1","bossPip2","bossPip3"];
+    pips.forEach((id,i)=>{
+      const el=document.getElementById(id);
+      el.classList.remove("active","done");
+      const pip=i+1;
+      if(pip<state.bossPhase)el.classList.add("done");
+      else if(pip===state.bossPhase)el.classList.add("active");
+    });
+  }
+
+  function updateBoss(dt,stage){
+    if(stage.kind!=="boss")return;
+    if(state.bossPhase===0){initBossStage(stage);return;}
+
+    const phaseDurations=[0,30,25,20];
+    state.bossPhaseTimer+=dt;
+
+    if(state.bossStaggerTimer>0){
+      state.bossStaggerTimer-=dt;
+    }
+
+    if(state.bossPhase<3&&state.bossPhaseTimer>=phaseDurations[state.bossPhase]){
+      state.bossPhase++;state.bossPhaseTimer=0;
+      updateBossPips();
+      addMessage(`Phase ${state.bossPhase}`,state.w/2,state.h*0.25,C.danger);
+      if(state.bossPhase===2)state.bossWeakpointActive=true;
+      if(state.bossPhase===3){state.bossWeakpointActive=true;addMessage("RAGE",state.w/2,state.h*0.35,C.danger);}
+    }
+
+    if(state.bossPhase>=3&&state.bossPhaseTimer>=phaseDurations[3]){
+      // Boss defeat
+      state.bossDefeatPhase=1;state.bossDefeatTimer=0;
+      document.getElementById("bossHud").classList.remove("visible");
+      state.run.bossesDefeated+=1;
+      burst(state.w/2,state.h*0.35,currentZone().color,70,12);
+      vibrate([50,30,80]);
+      playSound("buy");
+    }
+  }
+
+  // ── Zone mechanics ────────────────────────────────────────────────────────────
+
+  function updateZoneMechanics(dt){
+    const zone=save.selectedZone;
+
+    if(zone==="quantum_core"||state.activeModifier==="signal_decay"){
+      const decayRate=state.activeModifier==="signal_decay"?6:4;
+      state.energy=Math.max(0,state.energy-decayRate*dt);
+    }
+
+    if(zone==="void_network"){
+      state.commitLock=Math.max(0,state.commitLock-dt);
+    }
+
+    if(zone==="glitch_dimension"){
+      state.glitchFlashTimer+=dt;
+      if(state.glitchFlashTimer>=8){state.glitchFlashTimer=0;state.glitchFlashActive=true;}
+      if(state.glitchFlashActive){
+        state.glitchFlashTimer>=-0.08?0:state.glitchFlashActive=false;
+        // keep active for 80ms
+        if(state.glitchFlashTimer>0.08)state.glitchFlashActive=false;
+      }
+      // Glitch tears
+      state.glitchTears=state.glitchTears.filter(t=>{t.life-=dt;return t.life>0;});
+      if(state.rng()>1-dt*0.4){
+        state.glitchTears.push({y:Math.random()*state.h,dx:(Math.random()-0.5)*16,life:0.08+Math.random()*0.06,h:8+Math.random()*10});
+      }
+    }
+
+    if(zone==="singularity"){
+      const pull=(state.w/2-state.playerX)*0.008*dt;
+      state.gravityPull=pull;
+      state.playerX+=pull;
+      // Gravity well obstacles also active
+      for(const ob of state.obstacles){
+        if(ob.type==="gravity_well"){
+          const gp=(state.w/2-state.playerX)*0.008*dt;
+          state.playerX=clamp(state.playerX+gp,state.trackX,state.trackX+state.trackW);
+        }
+      }
+    }
+
+    if(zone==="pulse_nexus"){
+      state.heat=Math.max(0,state.heat-2*dt);
+      if(state.heatSurge>0){
+        state.heatSurge-=dt;
+        if(state.heatSurge<=0){state.speed/=1.15;}
+      }
+      if(state.heat>=100&&state.heatSurge<=0){
+        state.heatSurge=6.0;state.heat=0;
+        state.speed*=1.15;
+        addMessage("HEAT SURGE",state.w/2,state.h*0.3,C.boost);
+      }
+    }
+  }
+
+  function applyModifierEffects(dt){
+    const mod=state.activeModifier;
+    if(!mod)return;
+    if(mod==="tremor"){
+      state.tremorPhase=(state.tremorPhase||0)+dt;
+      const drift=Math.sin(state.tremorPhase*(2*Math.PI/0.4))*3;
+      state.playerX=clamp(state.playerX+drift*dt*8,state.trackX,state.trackX+state.trackW);
+    }
+    if(mod==="slipstream"&&state.slipstreamTimer>0){
+      state.slipstreamTimer=Math.max(0,state.slipstreamTimer-dt);
+    }
+  }
+
+  // ── Onboarding ────────────────────────────────────────────────────────────────
+
+  function updateOnboarding(dt){
+    if(!state.onboarding)return;
+    state.onboardingTimer+=dt;
+    if(state.onboardingPhase===0&&state.onboardingTimer>=15){state.onboardingPhase=1;state.onboardingTimer=0;}
+    else if(state.onboardingPhase===1&&state.onboardingTimer>=15){state.onboardingPhase=2;state.onboardingTimer=0;}
+    else if(state.onboardingPhase===2&&state.onboardingTimer>=20){state.onboardingPhase=3;state.onboardingTimer=0;}
+    else if(state.onboardingPhase===3&&state.onboardingTimer>=20){state.onboardingPhase=4;state.onboardingTimer=0;}
+    else if(state.onboardingPhase===4&&state.onboardingTimer>=0){state.onboarding=false;}
+  }
+
+  // ── Main update ───────────────────────────────────────────────────────────────
+
+  function update(dt){
+    if(state.screen==="menu"){updateMenuGhost(dt);updateParticles(dt);return;}
+    if(state.screen!=="playing"){updateParticles(dt);updateFragments(dt);return;}
+
+    const stage=currentStage();
+    const zonePressure=1+ZONES.findIndex(z=>z.id===save.selectedZone)*0.05;
+    state.time+=dt;state.stageTimer+=dt;
+
+    let speedBase=(300+Math.min(520,state.time*8+state.score*0.055))*stage.speedMul*zonePressure;
+    if(state.activeModifier==="double_threat")speedBase*=1.15;
+    state.speed=speedBase;
+
+    state.meters+=state.speed*dt*0.03;state.run.meters=Math.floor(state.meters);
+    state.run.stageReached=state.stageIndex;
+    state.score+=dt*(11+state.speed*0.022)*(state.overdrive>0?1.8:1)*Math.min(8,1+state.combo*0.09)*scoreMultiplier();
+    state.run.score=Math.floor(state.score);
+
+    const prevDisplayed=Math.floor(state.displayedScore);
+    state.displayedScore+=(state.score-state.displayedScore)*Math.min(1,dt*12);
+    if(Math.floor(state.displayedScore)>prevDisplayed&&els.scoreStrong){
+      els.scoreStrong.classList.add("pulse");
+      setTimeout(()=>els.scoreStrong.classList.remove("pulse"),80);
+    }
+
+    state.comboTimer=Math.max(0,state.comboTimer-dt);
+    if(state.comboTimer===0&&state.combo>1)state.combo=Math.max(1,state.combo-dt*state.comboDecayRate);
+    state.overdrive=Math.max(0,state.overdrive-dt);
+    state.invincible=Math.max(0,state.invincible-dt);
+    state.shake=Math.max(0,state.shake-dt*22);
+    state.boostCinema=Math.max(0,state.boostCinema-dt);
+    state.stageBeam=Math.max(0,state.stageBeam-dt);
+    state.bossReveal=Math.max(0,state.bossReveal-dt);
+    if(state.trackMaterialise>0)state.trackMaterialise=Math.max(0,state.trackMaterialise-dt*2);
+
+    // Clutch timer
+    if(state.clutchActive){
+      state.clutchTimer-=dt;
+      document.getElementById("clutchTimer").textContent=`CLUTCH — ${Math.ceil(Math.max(0,state.clutchTimer))}s`;
+      if(state.clutchTimer<=0){
+        state.clutchActive=false;
+        document.getElementById("app").classList.remove("clutch-active");
+        state.run.viralMoments++;
+      }
+    }
+
+    // Boss stagger
+    if(state.bossStaggerTimer>0)state.bossStaggerTimer=Math.max(0,state.bossStaggerTimer-dt);
+
+    // Boss defeat sequence
+    if(state.bossDefeatPhase>0){
+      state.bossDefeatTimer+=dt;
+      if(state.bossDefeatPhase===1&&state.bossDefeatTimer>=0.4){state.bossDefeatPhase=2;}
+      if(state.bossDefeatPhase===2&&state.bossDefeatTimer>=1.2){state.bossDefeatPhase=3;}
+      if(state.bossDefeatPhase===3&&state.bossDefeatTimer>=3.0){
+        state.bossDefeatPhase=0;state.bossDefeatTimer=0;
+        state.stageIndex+=1;state.stageTimer=0;state.stageHits=0;
+        const deathKey=`${save.selectedZone}_${state.stageIndex-1}`;
+        save.stageDeathCounts[deathKey]=0;
+        addMessage(`Stage ${state.stageIndex}`,state.w/2,state.h*0.25,currentZone().color);
+      }
+    }
+
+    state.playerX+=(laneCenter(state.targetLane)-state.playerX)*Math.min(1,dt*(16+bonus("movement")*0.5));
+    recordGhost(dt);
+
+    applyModifierEffects(dt);
+    updateZoneMechanics(dt);
+    updateOnboarding(dt);
+    updateBoss(dt,stage);
+
+    state.spawnTimer-=dt;
+    if(state.spawnTimer<=0&&state.bossDefeatPhase===0){
+      spawnPattern(stage);
+      const pressure=Math.min(0.62,state.stageIndex*0.012+state.time*0.002);
+      let interval=0.88-pressure+state.rng()*0.2;
+      if(state.nearMissStreak>=20)interval*=0.9;
+      state.spawnTimer=interval;
+    }
+
+    if(state.stageTimer>=stage.duration&&stage.kind!=="boss"&&state.bossDefeatPhase===0)advanceStage(stage);
+
+    updateObstacles(dt);updateShards(dt);updateParticles(dt);updateWakes(dt);updateFragments(dt);
+    maybeAddSpeedSparks(dt,stage);
+    updateHud();
+  }
+
+  function updateMenuGhost(dt){
+    if(!menuGhost.active)return;
+    menuGhost.time=(menuGhost.time||0)+dt;
+    const targetLane=clamp(Math.floor(2+Math.sin(menuGhost.time*0.4)*1.8),0,4);
+    const targetX=laneCenter(targetLane);
+    menuGhost.x+=(targetX-menuGhost.x)*Math.min(1,dt*3);
+  }
+
+  function recordGhost(dt){
+    state.recordTimer+=dt;
+    if(state.recordTimer<0.25)return;
+    state.recordTimer=0;
+    state.inputGhost.push([Number(state.time.toFixed(2)),laneFromX(state.playerX)]);
+  }
+
+  function advanceStage(stage){
+    state.run.stagesCleared+=1;
+    state.stageBeam=0.4;
+    if(state.stageHits===0){
+      state.run.perfectStages+=1;
+      state.score+=Math.floor((250+state.stageIndex*15)*(1+bonus("perfectScore")*0.07));
+      state.energy=Math.min(100,state.energy+energyGain(8));
+      addMessage("Perfect",state.w/2,state.h*0.3,C.perfect);
+    }
+    // Clear death count
+    const deathKey=`${save.selectedZone}_${state.stageIndex}`;
+    save.stageDeathCounts[deathKey]=0;
+    state.stageIndex+=1;state.stageTimer=0;state.stageHits=0;
+    // Cascade modifier: bonus shard stage
+    if(state.activeModifier==="cascade"){
+      const cascadeCount=45;
+      for(let i=0;i<cascadeCount;i++)spawnShard(Math.floor(state.rng()*state.lanes),-60-i*20);
+    }
+    const nextStage=currentStage();
+    if(nextStage.kind==="boss"){state.bossReveal=1.4;state.bossRevealName=nextStage.name;state.bossPhase=0;}
+    addMessage(`Stage ${state.stageIndex}`,state.w/2,state.h*0.25,currentZone().color);
+  }
+
+  // ── HUD / boost ring ──────────────────────────────────────────────────────────
+
+  function updateHud(){
+    els.stage.textContent=format(state.stageIndex);
+    els.score.textContent=format(state.displayedScore);
+    els.best.textContent=format(Math.max(save.best,state.score));
+    const ready=state.energy>=100;
+    els.boost.classList.toggle("ready",ready);
+    updateBoostRing();
+    // Streak HUD
+    updateStreakHud();
+    // Combo display
+    const comboDisplay=document.getElementById("comboDisplay");
+    const comboVal=document.getElementById("comboValue");
+    comboDisplay.classList.toggle("visible",state.screen==="playing"&&state.combo>1);
+    ["combo-x1","combo-x5","combo-x10","combo-x20","combo-x40"].forEach(c=>comboVal.classList.remove(c));
+    if(state.combo>=40)comboVal.classList.add("combo-x40");
+    else if(state.combo>=20)comboVal.classList.add("combo-x20");
+    else if(state.combo>=10)comboVal.classList.add("combo-x10");
+    else if(state.combo>=5)comboVal.classList.add("combo-x5");
+    else comboVal.classList.add("combo-x1");
+    comboVal.textContent=`${Math.floor(state.combo)}×`;
+  }
+
+  function updateBoostRing(){
+    if(!els.boostRingFill)return;
+    const pct=clamp(state.energy/100,0,1);
+    const dashLen=pct*RING_CIRC;
+    els.boostRingFill.setAttribute("stroke-dasharray",`${dashLen} ${RING_CIRC}`);
+  }
+
+  // ── DRAWING ───────────────────────────────────────────────────────────────────
 
   function draw(now){
     const inGame=state.screen==="playing"||state.screen==="gameover";
@@ -1536,19 +2139,16 @@
       drawBoostCinema(now);
       drawStageBeam(now);
       drawBossReveal(now);
+      drawBossDefeatBeams(now);
     } else if(state.screen==="menu"){
       drawMenuGhost(now);
     }
     ctx.restore();
   }
 
-  // ── Background ───────────────────────────────────────────────────────────────
-
   function drawBackground(now){
-    // Solid void base
     ctx.fillStyle=C.void;
     ctx.fillRect(0,0,state.w,state.h);
-    // Subtle diagonal scan lines
     ctx.save();
     ctx.globalAlpha=0.06;
     ctx.strokeStyle="#ffffff";ctx.lineWidth=1;
@@ -1558,39 +2158,29 @@
       ctx.beginPath();ctx.moveTo(0,y+offset);ctx.lineTo(state.w,y+offset+22);ctx.stroke();
     }
     ctx.restore();
-    // Subtle ambient orbs (zone-tinted)
     const zone=currentZone();
     ctx.save();
     ctx.globalAlpha=0.08+Math.sin((now||0)*1.2)*0.03;
     ctx.fillStyle=zone.color;
     ctx.beginPath();ctx.arc(state.trackX+state.trackW*0.1,state.h*0.15,100,0,Math.PI*2);ctx.fill();
-    ctx.globalAlpha=0.07;
-    ctx.fillStyle=C.reward;
+    ctx.globalAlpha=0.07;ctx.fillStyle=C.reward;
     ctx.beginPath();ctx.arc(state.trackX+state.trackW*0.88,state.h*0.88,130,0,Math.PI*2);ctx.fill();
     ctx.restore();
   }
-
-  // ── Zone-specific atmosphere layers ──────────────────────────────────────────
 
   function drawZoneAtmosphere(now){
     const zoneId=save.selectedZone;
     const t=state.time||now||0;
     ctx.save();
-
     if(zoneId==="neon_city"){
-      // 3 parallax building silhouette layers
       drawBuildingSilhouettes(now,0.1,0.20,state.h*0.4);
       drawBuildingSilhouettes(now,0.2,0.36,state.h*0.55);
-      // Neon reflections on track surface
-      ctx.globalAlpha=0.18;
-      ctx.fillStyle=C.danger;
+      ctx.globalAlpha=0.18;ctx.fillStyle=C.danger;
       ctx.fillRect(state.trackX+3,state.playerY+40,6,state.h);
       ctx.fillStyle=C.wake;
       ctx.fillRect(state.trackX+state.trackW-9,state.playerY+40,6,state.h);
     }
-
     if(zoneId==="quantum_core"){
-      // Hex grid overlay
       ctx.globalAlpha=0.06;ctx.strokeStyle=C.perfect;ctx.lineWidth=1;
       const hexSize=28,hexH=hexSize*Math.sqrt(3);
       const scrollY=(t*state.speed*0.04)%hexH;
@@ -1601,68 +2191,43 @@
           drawHex(cx,cy,hexSize-4);
         }
       }
-      // Data cascade columns
-      ctx.globalAlpha=0.07;ctx.fillStyle=C.perfect;
-      const numCols=Math.floor(state.trackW/60);
-      for(let i=0;i<numCols;i++){
-        const cx=state.trackX+i*60;
-        const yOff=((t*220+i*37)%(state.h+100))-50;
-        ctx.fillRect(cx,yOff,3,60);
-      }
-      // Radial pulse ring
       const pulsePeriod=3,pulseT=t%pulsePeriod;
       const pulseR=(pulseT/pulsePeriod)*Math.max(state.w,state.h)*0.7;
       ctx.globalAlpha=Math.max(0,0.06*(1-pulseT/pulsePeriod));
       ctx.strokeStyle=C.perfect;ctx.lineWidth=80;
       ctx.beginPath();ctx.arc(state.w/2,state.h/2,pulseR,0,Math.PI*2);ctx.stroke();
     }
-
-    if(zoneId==="void_network"){
-      // Void: almost nothing — occasional floor drop (purely visual)
-      if(Math.floor(t*2)%5===0){
-        const sectionY=state.h*0.6;
-        ctx.globalAlpha=0.04*(1-(t%0.5)/0.5);
-        ctx.fillStyle=C.void;
-        ctx.fillRect(state.trackX,sectionY,state.trackW,40);
-      }
-    }
-
     if(zoneId==="glitch_dimension"){
-      // Magenta tint on track
       ctx.globalAlpha=0.04;ctx.fillStyle="#FF00AA";
       ctx.fillRect(state.trackX,0,state.trackW,state.h);
-      // Horizontal tears
       for(const tear of state.glitchTears){
-        ctx.save();
-        ctx.globalAlpha=tear.life*8*0.4;
+        ctx.save();ctx.globalAlpha=tear.life*8*0.4;
         ctx.drawImage(canvas,0,tear.y,state.w,tear.h,tear.dx,tear.y,state.w,tear.h);
         ctx.restore();
       }
+      if(state.glitchFlashActive){
+        ctx.globalAlpha=0.18;ctx.fillStyle=C.spine;
+        ctx.fillRect(0,0,state.w,state.h);
+      }
     }
-
     if(zoneId==="singularity"){
-      // Amber/orange temperature tint
       ctx.globalAlpha=0.06;ctx.fillStyle=C.boost;
       ctx.fillRect(0,0,state.w,state.h);
-      // Radial distortion fake: dark vignette that "warps" toward center
       const radGrad=ctx.createRadialGradient(state.w/2,state.h/2,100,state.w/2,state.h/2,state.w*0.7);
-      radGrad.addColorStop(0,"rgba(0,0,0,0)");
-      radGrad.addColorStop(1,"rgba(0,0,0,0.22)");
+      radGrad.addColorStop(0,"rgba(0,0,0,0)");radGrad.addColorStop(1,"rgba(0,0,0,0.22)");
       ctx.fillStyle=radGrad;ctx.globalAlpha=1;
       ctx.fillRect(0,0,state.w,state.h);
     }
-
     if(zoneId==="pulse_nexus"){
-      // White strobe — single frame flash every ~4s
-      if(Math.floor(t*60)%240===0){
-        ctx.globalAlpha=0.08;ctx.fillStyle="#ffffff";
-        ctx.fillRect(0,0,state.w,state.h);
+      // Heat tint
+      if(state.heat>40){
+        ctx.globalAlpha=(state.heat-40)/200;
+        ctx.fillStyle=C.boost;
+        ctx.fillRect(state.trackX,0,state.trackW,state.h);
       }
-      // White core line down track center
       ctx.globalAlpha=0.5;ctx.strokeStyle=C.ghost;ctx.lineWidth=2;
       ctx.beginPath();ctx.moveTo(state.w/2,0);ctx.lineTo(state.w/2,state.h);ctx.stroke();
     }
-
     ctx.restore();
   }
 
@@ -1687,164 +2252,179 @@
     ctx.closePath();ctx.stroke();
   }
 
-  // ── Track ────────────────────────────────────────────────────────────────────
-
   function drawTrack(now){
     const x=state.trackX,w=state.trackW,bottom=state.h+40,top=-40;
     ctx.save();
     ctx.fillStyle="rgba(10,11,18,0.68)";
     roundRect(ctx,x,top,w,bottom-top,8);ctx.fill();
-
-    // Lane dividers — dashed, with optional materialise reveal
-    const mat=state.trackMaterialise!==undefined?state.trackMaterialise:0;
-    const matY=mat>0?state.h*(1-mat):0; // lines reveal top-to-bottom
-
+    const mat=state.trackMaterialise>0?state.trackMaterialise:0;
+    const matY=mat>0?state.h*(1-mat):0;
     ctx.strokeStyle="rgba(255,255,255,0.09)";ctx.lineWidth=1;
     for(let i=1;i<state.lanes;i++){
       const lx=x+i*state.laneW;
       ctx.setLineDash([9,18]);
       ctx.lineDashOffset=-(state.time||0)*state.speed*0.05;
-      ctx.beginPath();
-      ctx.moveTo(lx,mat>0?matY:top);
-      ctx.lineTo(lx,bottom);
-      ctx.stroke();
+      ctx.beginPath();ctx.moveTo(lx,mat>0?matY:top);ctx.lineTo(lx,bottom);ctx.stroke();
     }
     ctx.setLineDash([]);
-
-    // Track border — ghost white at low alpha, boosts to visible during overdrive
-    ctx.globalAlpha=state.overdrive>0?0.38:0.14;
-    ctx.strokeStyle=state.overdrive>0?C.boost:C.ghost;
+    // Heat border for Pulse Nexus
+    const heatAlpha=save.selectedZone==="pulse_nexus"?Math.max(0.14,(state.heat/100)*0.5):0.14;
+    const heatColor=save.selectedZone==="pulse_nexus"&&state.heat>40?C.boost:(state.overdrive>0?C.boost:C.ghost);
+    ctx.globalAlpha=state.overdrive>0?0.38:heatAlpha;
+    ctx.strokeStyle=heatColor;
     ctx.lineWidth=state.overdrive>0?2.5:1;
     roundRect(ctx,x+4,top+4,w-8,bottom-top-8,8);ctx.stroke();
-
-    // Scan line
     const scanY=((((now||0)*140)%(state.h+140))-70);
     const scan=ctx.createLinearGradient(0,scanY-60,0,scanY+60);
-    scan.addColorStop(0,"rgba(200,240,255,0)");
-    scan.addColorStop(0.5,"rgba(200,240,255,0.08)");
-    scan.addColorStop(1,"rgba(200,240,255,0)");
+    scan.addColorStop(0,"rgba(200,240,255,0)");scan.addColorStop(0.5,"rgba(200,240,255,0.08)");scan.addColorStop(1,"rgba(200,240,255,0)");
     ctx.fillStyle=scan;ctx.globalAlpha=1;
     ctx.fillRect(x,scanY-60,w,120);
     ctx.restore();
   }
 
-  // ── Ghost replay ─────────────────────────────────────────────────────────────
-
   function drawGhost(){
     if(!state.ghostReplay?.lanes?.length)return;
     const sample=state.ghostReplay.lanes.reduce((prev,item)=>item[0]<=state.time?item:prev,state.ghostReplay.lanes[0]);
     const x=laneCenter(sample[1]);
-    ctx.save();
-    ctx.globalAlpha=0.22;ctx.fillStyle=C.ghost;
+    ctx.save();ctx.globalAlpha=0.22;ctx.fillStyle=C.ghost;
     ctx.beginPath();drawTearPath(ctx,x,state.playerY+18,14,20);ctx.fill();
     ctx.restore();
   }
-
-  // ── WAKE STROKES — the signature near-miss brushmarks ────────────────────────
 
   function drawWakes(now){
     ctx.save();
     for(const w of state.wakes){
       const alpha=w.life/w.maxLife;
-      const width=(w.secondary?4:18)*w.scale*(alpha);
+      const razorDouble=state.nearMissStreak>=5&&state.nearMissStreak<10?2:1;
+      const width=(w.secondary?4:18)*w.scale*alpha*razorDouble;
       ctx.globalAlpha=Math.max(0,w.secondary?alpha*0.3:alpha*0.7);
-      ctx.strokeStyle=w.color;
-      ctx.lineWidth=Math.max(0.5,width);
-      ctx.lineCap="round";
-      ctx.beginPath();
-      ctx.moveTo(w.x,w.y);
-      ctx.quadraticCurveTo(w.cx,w.cy,w.ex,w.ey);
-      ctx.stroke();
+      ctx.strokeStyle=w.color;ctx.lineWidth=Math.max(0.5,width);ctx.lineCap="round";
+      ctx.beginPath();ctx.moveTo(w.x,w.y);ctx.quadraticCurveTo(w.cx,w.cy,w.ex,w.ey);ctx.stroke();
     }
     ctx.restore();
   }
 
-  // ── OBSTACLES — 4 visual families ────────────────────────────────────────────
-
   function drawObstacles(now){
     ctx.save();
     for(const ob of state.obstacles){
+      if(ob.type==="gravity_well"){
+        drawGravityWell(ob,now);
+        continue;
+      }
+      const obAlpha=(ob.type==="phantom")?ob.opacity:1;
+
       for(const lane of ob.lanes){
         const ox=state.trackX+lane*state.laneW+8;
         const ow=state.laneW-16;
         const oy=ob.y-ob.h/2;
 
-        if(ob.kind==="bulkhead"){
-          // Flat danger red with bright top-edge telegraph
+        ctx.globalAlpha=obAlpha*(ob.fake?0.85:1);
+
+        if(ob.type==="bulkhead"||ob.type==="splice"||ob.type==="echoes"){
           const g=ctx.createLinearGradient(ox,oy,ox+ow,oy+ob.h);
           g.addColorStop(0,C.danger);g.addColorStop(1,"#230010");
           ctx.fillStyle=g;
           roundRect(ctx,ox,oy,ow,ob.h,6);ctx.fill();
           if(PERF.shadowBlur){ctx.shadowColor=C.danger;ctx.shadowBlur=12;}
-          // Top edge telegraph: amber heat signature
-          ctx.fillStyle=C.reward;ctx.globalAlpha=0.72;
-          ctx.fillRect(ox+4,oy,ow-8,3);
-          ctx.globalAlpha=1;ctx.shadowBlur=0;
-
-        } else if(ob.kind==="spine"){
-          // Tall narrow violet rhombus
-          const cx=ox+ow/2,cy=ob.y;
-          const hw=ow*0.36,hh=ob.h/2;
-          if(PERF.shadowBlur){ctx.shadowColor=C.spine;ctx.shadowBlur=16;}
-          ctx.fillStyle=C.spine;
-          ctx.beginPath();
-          ctx.moveTo(cx,cy-hh);ctx.lineTo(cx+hw,cy);ctx.lineTo(cx,cy+hh);ctx.lineTo(cx-hw,cy);
-          ctx.closePath();ctx.fill();
-          ctx.shadowBlur=0;
-          // Violet lane hint (flat fallback always visible)
-          ctx.globalAlpha=0.18;ctx.fillStyle=C.spine;
-          ctx.fillRect(ox,oy-12,ow,6);
-          ctx.globalAlpha=1;
-
-        } else if(ob.kind==="crawler"){
-          // Low wide semi-transparent
-          ctx.globalAlpha=0.58;
-          ctx.fillStyle=C.danger;
-          roundRect(ctx,ox-2,oy,ow+4,ob.h,4);ctx.fill();
-          ctx.globalAlpha=1;
-          // Scan-line top edge
-          ctx.fillStyle="rgba(255,255,255,0.35)";
-          ctx.fillRect(ox,oy,ow,2);
-
-        } else if(ob.kind==="sentinel"){
-          // Concentric triple rect — looks like depth
-          const scales=[1,0.7,0.45];
-          const alphas=[0.3,0.6,1.0];
-          const pulse=0.08*Math.sin((now||0)*6+lane);
-          for(let r=0;r<3;r++){
-            const s=scales[r]*(1+pulse);
-            const rw=ow*s,rh=ob.h*s;
-            const rx=ox+(ow-rw)/2,ry=ob.y-rh/2;
-            ctx.globalAlpha=alphas[r];
-            ctx.fillStyle=C.danger;
-            roundRect(ctx,rx,ry,rw,rh,5);ctx.fill();
+          if(!ob.fake){
+            ctx.fillStyle=ob.isWeakpoint?C.perfect:C.reward;ctx.globalAlpha=(obAlpha*(ob.fake?0.85:1))*0.72;
+            ctx.fillRect(ox+4,oy,ow-8,3);
           }
-          ctx.globalAlpha=1;
-
-        } else {
-          // Fallback: flat danger rect
+          ctx.globalAlpha=1;ctx.shadowBlur=0;
+        } else if(ob.type==="convoy"){
+          ctx.fillStyle=C.danger;ctx.globalAlpha=obAlpha;
+          roundRect(ctx,ox,oy,ow,ob.h,4);ctx.fill();
+          ctx.fillStyle="rgba(255,255,255,0.35)";ctx.fillRect(ox,oy,ow,2);
+          if(ob.convoyLead){
+            ctx.globalAlpha=0.8;ctx.fillStyle=C.reward;
+            ctx.font="700 11px 'DM Mono',monospace";ctx.textAlign="center";
+            ctx.fillText("×3",ox+ow/2,oy-6);
+          }
+        } else if(ob.type==="drift"){
+          // Motion blur ghost rects behind
+          for(let g=1;g<=3;g++){
+            const gox=state.trackX+(ob.laneFloat-ob.driftDir*g*0.25)*state.laneW+8;
+            ctx.globalAlpha=obAlpha*(0.15-g*0.04);
+            ctx.fillStyle=C.danger;
+            roundRect(ctx,gox,oy,ow,ob.h,4);ctx.fill();
+          }
+          ctx.globalAlpha=obAlpha;
           ctx.fillStyle=C.danger;
           roundRect(ctx,ox,oy,ow,ob.h,6);ctx.fill();
+          ctx.fillStyle=C.reward;ctx.globalAlpha=obAlpha*0.72;ctx.fillRect(ox+4,oy,ow-8,3);
+        } else if(ob.type==="pulse"){
+          ctx.globalAlpha=obAlpha;
+          ctx.fillStyle=C.danger;
+          roundRect(ctx,ox,oy,ow,ob.h,6);ctx.fill();
+          if(ob.jumpWarning){
+            ctx.globalAlpha=0.85;ctx.fillStyle=C.danger;
+            ctx.fillRect(ox,oy,4,ob.h);ctx.fillRect(ox+ow-4,oy,4,ob.h);
+          }
+          ctx.fillStyle=C.reward;ctx.globalAlpha=obAlpha*0.72;ctx.fillRect(ox+4,oy,ow-8,3);
+        } else if(ob.type==="mirror"){
+          ctx.globalAlpha=obAlpha;
+          ctx.fillStyle=C.danger;
+          roundRect(ctx,ox,oy,ow,ob.h,6);ctx.fill();
+          ctx.fillStyle=C.reward;ctx.globalAlpha=obAlpha*0.72;ctx.fillRect(ox+4,oy,ow-8,3);
+        } else if(ob.type==="gate"){
+          ctx.globalAlpha=obAlpha;
+          const g2=ctx.createLinearGradient(ox,oy,ox+ow,oy+ob.h);
+          g2.addColorStop(0,C.danger);g2.addColorStop(1,"#230010");
+          ctx.fillStyle=g2;
+          roundRect(ctx,ox,oy,ow,ob.h,6);ctx.fill();
+          ctx.fillStyle=C.reward;ctx.globalAlpha=obAlpha*0.72;ctx.fillRect(ox+4,oy,ow-8,3);
+          // Gap lane highlight on spawn
+          if(ob.gapHighlightTimer>0){
+            const gapX=state.trackX+ob.gapLane*state.laneW;
+            ctx.globalAlpha=ob.gapHighlightTimer*0.8;
+            ctx.fillStyle=ob.isWeakpoint?(state.bossPhase===3?"rgba(160,255,180,0.2)":"rgba(160,255,180,0.15)"):"rgba(200,240,255,0.15)";
+            ctx.fillRect(gapX,oy-20,state.laneW,ob.h+40);
+          }
+        } else {
+          ctx.globalAlpha=obAlpha;
+          ctx.fillStyle=C.danger;
+          roundRect(ctx,ox,oy,ow,ob.h,6);ctx.fill();
+          ctx.fillStyle=C.reward;ctx.globalAlpha=obAlpha*0.72;ctx.fillRect(ox+4,oy,ow-8,3);
         }
+        ctx.globalAlpha=1;ctx.shadowBlur=0;
+      }
+
+      // Mirror connecting line
+      if(ob.type==="mirror"&&ob.lanes.length===2){
+        const x1=laneCenter(ob.lanes[0]);
+        const x2=laneCenter(ob.lanes[1]);
+        ctx.strokeStyle="rgba(200,240,255,0.3)";ctx.lineWidth=1;
+        ctx.beginPath();ctx.moveTo(x1,ob.y);ctx.lineTo(x2,ob.y);ctx.stroke();
       }
     }
     ctx.restore();
   }
 
-  // ── SHARDS ───────────────────────────────────────────────────────────────────
+  function drawGravityWell(ob,now){
+    ctx.save();
+    const cx=state.w/2,cy=ob.y;
+    const maxR=80;
+    const t=(now||0)*2;
+    for(let i=3;i>=1;i--){
+      const r=maxR*(i/3)*(0.85+0.15*Math.sin(t+i));
+      ctx.globalAlpha=0.08;
+      ctx.strokeStyle=C.reward;ctx.lineWidth=2;
+      ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();
+    }
+    ctx.globalAlpha=0.5;ctx.fillStyle=C.reward;
+    ctx.beginPath();ctx.arc(cx,cy,6,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+  }
 
   function drawShards(now){
     ctx.save();
     for(const shard of state.shards){
       const x=laneCenter(shard.lane);
       const r=(shard.rare?12:9)+Math.sin(shard.pulse)*2;
-      ctx.save();
-      ctx.translate(x,shard.y);ctx.rotate(Math.PI/4);
+      ctx.save();ctx.translate(x,shard.y);ctx.rotate(Math.PI/4);
       if(PERF.shadowBlur){ctx.shadowColor=shard.rare?C.wake:C.reward;ctx.shadowBlur=18;}
       ctx.fillStyle=shard.rare?C.wake:C.reward;
-      roundRect(ctx,-r,-r,r*2,r*2,3);ctx.fill();
-      ctx.shadowBlur=0;
-      // Cross flash
+      roundRect(ctx,-r,-r,r*2,r*2,3);ctx.fill();ctx.shadowBlur=0;
       ctx.globalAlpha=0.38;ctx.fillStyle=shard.rare?C.danger:C.ghost;
       ctx.fillRect(-2,-r,4,r*2);ctx.fillRect(-r,-2,r*2,4);
       ctx.restore();
@@ -1852,91 +2432,59 @@
     ctx.restore();
   }
 
-  // ── PLAYER — teardrop with filament trails ────────────────────────────────────
-
   function drawPlayer(now){
     const skin=selectedSkin();
     const bob=Math.sin((now||0)*8)*2;
     const x=state.playerX,y=state.playerY+bob;
     const inv=state.invincible>0&&Math.floor((now||0)*16)%2===0;
-    if(state.runEnded)return; // fragments take over on death
-
+    if(state.runEnded)return;
     ctx.save();
     if(inv)ctx.globalAlpha=0.5;
     ctx.translate(x,y);
-
     const overdriving=state.overdrive>0;
     const bodyColor=overdriving?C.reward:skin.color;
     const trailColor=overdriving?C.boost:C.wake;
     const filamentWidth=overdriving?4:1.5;
-
-    // Filament trails — two thin lines trailing behind
     const trailLen=overdriving?90:60;
     const trailAlpha=overdriving?0.9:0.7;
-    for(const side of [-1,1]){
+    for(const side of[-1,1]){
       const tx=side*10;
       const grad=ctx.createLinearGradient(tx,18,tx,18+trailLen);
-      grad.addColorStop(0,trailColor);
-      grad.addColorStop(1,"rgba(0,0,0,0)");
-      ctx.globalAlpha=trailAlpha;
-      ctx.strokeStyle=trailColor;ctx.lineWidth=filamentWidth;ctx.lineCap="round";
+      grad.addColorStop(0,trailColor);grad.addColorStop(1,"rgba(0,0,0,0)");
+      ctx.globalAlpha=trailAlpha;ctx.strokeStyle=trailColor;ctx.lineWidth=filamentWidth;ctx.lineCap="round";
       ctx.beginPath();ctx.moveTo(tx,14);ctx.lineTo(tx+(side*Math.sin((now||0)*12)*3),18+trailLen);ctx.stroke();
     }
     ctx.globalAlpha=1;
-
-    // Body glow
     if(PERF.shadowBlur){ctx.shadowColor=overdriving?C.boost:skin.color;ctx.shadowBlur=overdriving?36:20;}
-
-    // Teardrop body: wider at top (nose), tapering at bottom (tail)
     ctx.fillStyle=bodyColor;
-    drawTearPath(ctx,0,0,22,38);
-    ctx.fill();
-
-    // Inner highlight
+    drawTearPath(ctx,0,0,22,38);ctx.fill();
     ctx.shadowBlur=0;
-    ctx.fillStyle="#ffffff";
-    ctx.globalAlpha=0.7;
-    drawTearPath(ctx,0,-4,10,16);
-    ctx.fill();
-    ctx.globalAlpha=1;
-
-    // Shockwave ring during boost
+    ctx.fillStyle="#ffffff";ctx.globalAlpha=0.7;
+    drawTearPath(ctx,0,-4,10,16);ctx.fill();ctx.globalAlpha=1;
     if(overdriving){
-      const ring=state.overdrive%0.32;
-      const rp=ring/0.32;
+      const ring=state.overdrive%0.32;const rp=ring/0.32;
       const rw=40+rp*40,rh=12+rp*12;
-      ctx.globalAlpha=(1-rp)*0.55;
-      ctx.strokeStyle=C.boost;ctx.lineWidth=2;
+      ctx.globalAlpha=(1-rp)*0.55;ctx.strokeStyle=C.boost;ctx.lineWidth=2;
       ctx.beginPath();ctx.ellipse(0,-20,rw/2,rh/2,0,0,Math.PI*2);ctx.stroke();
     }
-
+    // Active modifier tag
+    if(state.activeModifier){
+      ctx.globalAlpha=0.4;ctx.fillStyle=C.muted;
+      ctx.font="700 9px 'DM Mono',monospace";ctx.textAlign="center";
+      ctx.fillText(state.activeModifier.toUpperCase().slice(0,4),0,-50);
+    }
     ctx.restore();
   }
-
-  // Draw teardrop path — wider at top, pointed at bottom
-  function drawTearPath(context,cx,cy,hw,hh){
-    context.beginPath();
-    context.moveTo(cx,cy-hh);   // nose (top)
-    context.bezierCurveTo(cx+hw,cy-hh*0.4, cx+hw*0.7,cy+hh*0.5, cx,cy+hh); // right
-    context.bezierCurveTo(cx-hw*0.7,cy+hh*0.5, cx-hw,cy-hh*0.4, cx,cy-hh); // left
-    context.closePath();
-  }
-
-  // ── PARTICLES ────────────────────────────────────────────────────────────────
 
   function drawParticles(){
     ctx.save();
     for(const p of state.particles){
       const alpha=Math.max(0,p.life*2.0);
-      ctx.globalAlpha=alpha;
-      ctx.fillStyle=p.color;
+      ctx.globalAlpha=alpha;ctx.fillStyle=p.color;
       if(p.isFlash){
-        // Lane flash: wide low-alpha rect
-        ctx.globalAlpha=p.life*4;
-        ctx.fillRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size);
+        ctx.globalAlpha=p.life*4;ctx.fillRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size);
       } else if(p.isRing){
-        ctx.globalAlpha=alpha;
-        ctx.strokeStyle=p.color;ctx.lineWidth=2;
+        ctx.globalAlpha=alpha;ctx.strokeStyle=p.color;ctx.lineWidth=2;
         ctx.beginPath();ctx.arc(p.x,p.y,p.ringR||0,0,Math.PI*2);ctx.stroke();
       } else {
         ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();
@@ -1945,15 +2493,11 @@
     ctx.restore();
   }
 
-  // ── SPARKS ───────────────────────────────────────────────────────────────────
-
   function drawSparks(){
     ctx.save();
     for(const s of state.sparks){
-      ctx.globalAlpha=Math.max(0,s.life);
-      ctx.strokeStyle=s.color;ctx.lineWidth=2;
+      ctx.globalAlpha=Math.max(0,s.life);ctx.strokeStyle=s.color;ctx.lineWidth=2;
       if(s.isLine){
-        // Radial burst line
         ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(s.x+(s.vx||0)*0.06,s.y+(s.vy||0)*0.06);ctx.stroke();
       } else {
         ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(s.x,s.y+22);ctx.stroke();
@@ -1962,19 +2506,13 @@
     ctx.restore();
   }
 
-  // ── DEATH FRAGMENTS — 12 teardrops ──────────────────────────────────────────
-
   function drawFragments(now){
     if(!state.fragments.length)return;
     ctx.save();
     for(const f of state.fragments){
       const alpha=Math.max(0,f.life/f.maxLife);
-      ctx.globalAlpha=alpha;
-      ctx.save();
-      ctx.translate(f.x,f.y);ctx.rotate(f.rot);
-      ctx.fillStyle=f.color;
-      drawTearPath(ctx,0,0,22*f.scale,36*f.scale);ctx.fill();
-      // Tiny filament trail on each fragment
+      ctx.globalAlpha=alpha;ctx.save();ctx.translate(f.x,f.y);ctx.rotate(f.rot);
+      ctx.fillStyle=f.color;drawTearPath(ctx,0,0,22*f.scale,36*f.scale);ctx.fill();
       ctx.strokeStyle=C.wake;ctx.lineWidth=1;ctx.globalAlpha=alpha*0.5;
       ctx.beginPath();ctx.moveTo(0,14*f.scale);ctx.lineTo(0,14*f.scale+20*alpha);ctx.stroke();
       ctx.restore();
@@ -1982,183 +2520,130 @@
     ctx.restore();
   }
 
-  // ── MESSAGES ─────────────────────────────────────────────────────────────────
-
   function drawMessages(){
     ctx.save();
-    ctx.font="800 15px 'DM Mono', monospace";
-    ctx.textAlign="center";ctx.textBaseline="middle";
+    ctx.font="800 15px 'DM Mono', monospace";ctx.textAlign="center";ctx.textBaseline="middle";
     for(const m of state.messages){
-      ctx.globalAlpha=Math.max(0,Math.min(1,m.life*2));
-      ctx.fillStyle=m.color;
+      ctx.globalAlpha=Math.max(0,Math.min(1,m.life*2));ctx.fillStyle=m.color;
       if(PERF.shadowBlur){ctx.shadowColor=m.color;ctx.shadowBlur=10;}
       ctx.fillText(m.text,m.x,m.y);
     }
     ctx.restore();
   }
 
-  // ── BOOST CINEMA ─────────────────────────────────────────────────────────────
-  // Frame 0-80ms: white radial flash, obstacles desaturate
-  // Frame 80-200ms: speed lines burst
-  // Tail: background brightens
-
   function drawBoostCinema(now){
     if(state.boostCinema<=0)return;
     const elapsed=2.0-state.boostCinema;
     ctx.save();
-
     if(elapsed<0.08){
-      // Radial white flash
-      const pct=1-(elapsed/0.08);
-      ctx.globalAlpha=pct*0.88;
-      ctx.fillStyle="#ffffff";
-      ctx.fillRect(0,0,state.w,state.h);
-
+      ctx.globalAlpha=(1-(elapsed/0.08))*0.88;ctx.fillStyle="#ffffff";ctx.fillRect(0,0,state.w,state.h);
     } else if(elapsed<0.2){
-      // Speed lines
       const pct=1-((elapsed-0.08)/0.12);
-      ctx.globalAlpha=pct*0.55;
-      ctx.strokeStyle="#ffffff";ctx.lineWidth=1.5;
+      ctx.globalAlpha=pct*0.55;ctx.strokeStyle="#ffffff";ctx.lineWidth=1.5;
       for(let i=0;i<12;i++){
-        const a=(i/12)*Math.PI*2;
-        const len=60+Math.random()*80;
+        const a=(i/12)*Math.PI*2;const len=60+Math.random()*80;
         const sx=state.playerX+Math.cos(a)*20,sy=state.playerY+Math.sin(a)*20;
         ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(sx+Math.cos(a)*len,sy+Math.sin(a)*len);ctx.stroke();
       }
-
     } else if(state.boostCinema<0.1){
-      // Reverse flash at end of boost
-      const pct=state.boostCinema/0.1;
-      ctx.globalAlpha=pct*0.55;
-      ctx.fillStyle=C.reward;
-      ctx.fillRect(0,0,state.w,state.h);
+      ctx.globalAlpha=(state.boostCinema/0.1)*0.55;ctx.fillStyle=C.reward;ctx.fillRect(0,0,state.w,state.h);
     }
-
-    // Background brightens during boost
-    if(elapsed>0.2&&state.boostCinema>0.1){
-      ctx.globalAlpha=0.06;
-      ctx.fillStyle="#ffffff";
-      ctx.fillRect(0,0,state.w,state.h);
-    }
-
+    if(elapsed>0.2&&state.boostCinema>0.1){ctx.globalAlpha=0.06;ctx.fillStyle="#ffffff";ctx.fillRect(0,0,state.w,state.h);}
     ctx.restore();
   }
-
-  // ── STAGE CLEAR BEAM ─────────────────────────────────────────────────────────
 
   function drawStageBeam(now){
     if(state.stageBeam<=0)return;
     const pct=1-(state.stageBeam/0.4);
     const beamY=pct*state.h*1.4-80;
-    ctx.save();
-    ctx.globalAlpha=Math.sin(Math.min(pct*Math.PI,Math.PI))*0.8;
-    ctx.fillStyle=C.perfect;
-    ctx.fillRect(0,beamY,state.w,4);
-    ctx.restore();
+    ctx.save();ctx.globalAlpha=Math.sin(Math.min(pct*Math.PI,Math.PI))*0.8;ctx.fillStyle=C.perfect;
+    ctx.fillRect(0,beamY,state.w,4);ctx.restore();
   }
-
-  // ── BOSS REVEAL ──────────────────────────────────────────────────────────────
 
   function drawBossReveal(now){
     if(state.bossReveal<=0)return;
     const elapsed=1.4-state.bossReveal;
     ctx.save();
-
-    // Warm background tint
-    ctx.globalAlpha=Math.min(elapsed/0.6,1)*0.12;
-    ctx.fillStyle=C.danger;
-    ctx.fillRect(0,0,state.w,state.h);
-
-    // Boss name fades in then drifts upward
+    ctx.globalAlpha=Math.min(elapsed/0.6,1)*0.12;ctx.fillStyle=C.danger;ctx.fillRect(0,0,state.w,state.h);
     if(elapsed>0.3){
       const textElapsed=elapsed-0.3;
       const fadeIn=Math.min(textElapsed/0.4,1);
       const driftY=state.h/2-textElapsed*30;
       ctx.globalAlpha=fadeIn*(1-Math.max(0,(textElapsed-0.4)/0.7));
-      ctx.fillStyle=C.danger;
-      ctx.font="700 2.8rem 'DM Mono', monospace";
+      ctx.fillStyle=C.danger;ctx.font="700 2.8rem 'DM Mono', monospace";
       ctx.textAlign="center";ctx.textBaseline="middle";
       ctx.fillText(state.bossRevealName.replace("Boss:","").trim(),state.w/2,driftY);
     }
     ctx.restore();
   }
 
-  // ── MENU GHOST ───────────────────────────────────────────────────────────────
-
-  function drawMenuGhost(now){
-    if(!menuGhost.active)return;
+  function drawBossDefeatBeams(now){
+    if(state.bossDefeatPhase===0)return;
     ctx.save();
-    ctx.globalAlpha=0.14;
-    ctx.translate(menuGhost.x,state.playerY);
-    ctx.fillStyle=C.ghost;
-    drawTearPath(ctx,0,0,22,38);ctx.fill();
-    // Trailing filaments
-    ctx.strokeStyle=C.wake;ctx.lineWidth=1.5;ctx.globalAlpha=0.08;
-    for(const side of [-1,1]){
-      ctx.beginPath();ctx.moveTo(side*10,14);ctx.lineTo(side*10,80);ctx.stroke();
+    if(state.bossDefeatPhase===1){
+      // 8 radial beams from player
+      for(let i=0;i<8;i++){
+        const a=(i/8)*Math.PI*2;
+        ctx.strokeStyle=C.perfect;ctx.lineWidth=2;
+        ctx.globalAlpha=0.8;
+        ctx.beginPath();ctx.moveTo(state.playerX,state.playerY);
+        ctx.lineTo(state.playerX+Math.cos(a)*200,state.playerY+Math.sin(a)*200);
+        ctx.stroke();
+      }
+    } else if(state.bossDefeatPhase===2){
+      const progress=Math.min(1,(state.bossDefeatTimer-0.4)/0.8);
+      const ringR=progress*Math.max(state.w,state.h);
+      ctx.globalAlpha=(1-progress)*0.6;
+      ctx.strokeStyle=C.perfect;ctx.lineWidth=ringR*2;
+      ctx.beginPath();ctx.arc(state.w/2,state.h/2,ringR,0,Math.PI*2);ctx.stroke();
+      if(state.bossRevealName){
+        ctx.globalAlpha=progress*(1-progress)*4;ctx.fillStyle=C.perfect;
+        ctx.font="700 2rem 'DM Mono',monospace";ctx.textAlign="center";ctx.textBaseline="middle";
+        ctx.fillText(state.bossRevealName.replace("Boss:","").trim(),state.w/2,state.h*0.3-progress*40);
+      }
+    } else if(state.bossDefeatPhase===3){
+      // Coin spray handled via DOM; just show combo on screen
+      ctx.globalAlpha=0.7;ctx.fillStyle=C.reward;
+      ctx.font="800 1.4rem 'DM Mono',monospace";ctx.textAlign="center";
+      ctx.fillText(`${Math.floor(state.combo)}× COMBO`,state.w/2,state.h*0.45);
     }
     ctx.restore();
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // HUD + BOOST RING UPDATE
-  // ─────────────────────────────────────────────────────────────────────────────
-
-  function updateHud(){
-    els.stage.textContent=format(state.stageIndex);
-    els.score.textContent=format(state.displayedScore);
-    els.best.textContent=format(Math.max(save.best,state.score));
-    const ready=state.energy>=100;
-    els.boost.classList.toggle("ready",ready);
-    updateBoostRing();
-  }
-
-  function updateBoostRing(){
-    if(!els.boostRingFill)return;
-    const pct=clamp(state.energy/100,0,1);
-    const dashLen=pct*RING_CIRC;
-    els.boostRingFill.setAttribute("stroke-dasharray",`${dashLen} ${RING_CIRC}`);
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // COMBO DRAW (on-canvas, escalating)
-  // ─────────────────────────────────────────────────────────────────────────────
-
-  // Combo drawn on canvas — escalates in size and color
-  function drawComboOverlay(now){
-    if(state.combo<=1)return;
-    const combo=Math.floor(state.combo);
-    // Size escalation
-    let fontSize=14,color=C.muted,flash=false;
-    if(combo>=40){fontSize=32;color="#ffffff";flash=Math.floor((now||0)*4)%2===0;}
-    else if(combo>=20){fontSize=22;color=C.ghost;}
-    else if(combo>=10){fontSize=18;color=C.reward;}
-    else if(combo>=5){fontSize=16;color=C.reward;}
-
-    ctx.save();
-    ctx.globalAlpha=flash?0.6:0.85;
-    ctx.font=`800 ${fontSize}px 'DM Mono', monospace`;
-    ctx.textAlign="left";ctx.textBaseline="bottom";
-    if(PERF.shadowBlur&&combo>=10){ctx.shadowColor=color;ctx.shadowBlur=8;}
-    ctx.fillStyle=color;
-    ctx.fillText(`${combo}x`,state.trackX+8,state.playerY-10);
+  function drawMenuGhost(now){
+    if(!menuGhost.active)return;
+    ctx.save();ctx.globalAlpha=0.14;ctx.translate(menuGhost.x,state.playerY);ctx.fillStyle=C.ghost;
+    drawTearPath(ctx,0,0,22,38);ctx.fill();
+    ctx.strokeStyle=C.wake;ctx.lineWidth=1.5;ctx.globalAlpha=0.08;
+    for(const side of[-1,1]){ctx.beginPath();ctx.moveTo(side*10,14);ctx.lineTo(side*10,80);ctx.stroke();}
     ctx.restore();
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // TOAST
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ── Canvas utils ──────────────────────────────────────────────────────────────
+
+  function roundRect(context,x,y,w,h,r){
+    const radius=Math.min(r,Math.abs(w)/2,Math.abs(h)/2);
+    context.beginPath();
+    context.moveTo(x+radius,y);context.arcTo(x+w,y,x+w,y+h,radius);
+    context.arcTo(x+w,y+h,x,y+h,radius);context.arcTo(x,y+h,x,y,radius);
+    context.arcTo(x,y,x+w,y,radius);context.closePath();
+  }
+
+  function drawTearPath(context,cx,cy,hw,hh){
+    context.beginPath();
+    context.moveTo(cx,cy-hh);
+    context.bezierCurveTo(cx+hw,cy-hh*0.4,cx+hw*0.7,cy+hh*0.5,cx,cy+hh);
+    context.bezierCurveTo(cx-hw*0.7,cy+hh*0.5,cx-hw,cy-hh*0.4,cx,cy-hh);
+    context.closePath();
+  }
+
+  // ── Toast / Audio / Haptics ───────────────────────────────────────────────────
 
   function toast(text){
-    els.toast.textContent=text;
-    els.toast.classList.add("show");
+    els.toast.textContent=text;els.toast.classList.add("show");
     window.clearTimeout(toastTimer);
     toastTimer=window.setTimeout(()=>els.toast.classList.remove("show"),1600);
   }
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // AUDIO
-  // ─────────────────────────────────────────────────────────────────────────────
 
   function ensureAudio(){
     if(!save.sound||audioCtx)return;
@@ -2171,21 +2656,16 @@
     const map={start:[220,360,0.09],select:[420,560,0.04],buy:[360,720,0.12],shard:[660,940,0.06],boost:[140,680,0.18],break:[120,80,0.08],crash:[90,42,0.2],error:[160,120,0.1]};
     const[from,to,duration]=map[type]||map.select;
     const osc=audioCtx.createOscillator(),gain=audioCtx.createGain();
-    const now=audioCtx.currentTime;
+    const n=audioCtx.currentTime;
     osc.type=type==="crash"?"sawtooth":"triangle";
-    osc.frequency.setValueAtTime(from,now);
-    osc.frequency.exponentialRampToValueAtTime(Math.max(1,to),now+duration);
-    gain.gain.setValueAtTime(0.0001,now);
-    gain.gain.exponentialRampToValueAtTime(type==="boost"?0.16:0.07,now+0.012);
-    gain.gain.exponentialRampToValueAtTime(0.0001,now+duration);
-    osc.connect(gain);gain.connect(audioCtx.destination);
-    osc.start(now);osc.stop(now+duration+0.02);
+    osc.frequency.setValueAtTime(from,n);osc.frequency.exponentialRampToValueAtTime(Math.max(1,to),n+duration);
+    gain.gain.setValueAtTime(0.0001,n);gain.gain.exponentialRampToValueAtTime(type==="boost"?0.16:0.07,n+0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001,n+duration);
+    osc.connect(gain);gain.connect(audioCtx.destination);osc.start(n);osc.stop(n+duration+0.02);
   }
   function vibrate(pattern){if(save.haptics&&navigator.vibrate)navigator.vibrate(pattern);}
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // AD BRIDGE
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ── Ad bridge ────────────────────────────────────────────────────────────────
 
   const AdBridge={
     async showRewarded(placement){
@@ -2195,7 +2675,7 @@
         try{
           if(typeof admob.prepareRewardVideoAd==="function")await admob.prepareRewardVideoAd({adId:unit,isTesting:false});
           if(typeof admob.showRewardVideoAd==="function"){await admob.showRewardVideoAd();return true;}
-        }catch(error){console.warn("Rewarded ad failed",placement,error);}
+        }catch(e){}
       }
       return showPreviewAd(`Rewarded ${placement}`);
     }
@@ -2227,9 +2707,7 @@
     });
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // CHALLENGE CODES
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ── Challenge codes ───────────────────────────────────────────────────────────
 
   function makeChallengeCode(){
     const zone=save.selectedZone.replace(/_/g,"-").toUpperCase().slice(0,10);
@@ -2237,7 +2715,7 @@
     const stage=String(save.lastRun?.stageReached||1).padStart(3,"0");
     const score=String(save.lastRun?.score||save.best||1000);
     const check=hashString(`${zone}-${seed}-${stage}-${score}`).toString(36).toUpperCase().slice(0,3);
-    return `PBK-${zone}-${seed}-${stage}-${score}-${check}`;
+    return`PBK-${zone}-${seed}-${stage}-${score}-${check}`;
   }
   function parseChallengeCode(code){
     const parts=code.trim().toUpperCase().split("-");
@@ -2264,24 +2742,7 @@
     else toast(text);
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // CANVAS UTIL
-  // ─────────────────────────────────────────────────────────────────────────────
-
-  function roundRect(context,x,y,w,h,r){
-    const radius=Math.min(r,Math.abs(w)/2,Math.abs(h)/2);
-    context.beginPath();
-    context.moveTo(x+radius,y);
-    context.arcTo(x+w,y,x+w,y+h,radius);
-    context.arcTo(x+w,y+h,x,y+h,radius);
-    context.arcTo(x,y+h,x,y,radius);
-    context.arcTo(x,y,x+w,y,radius);
-    context.closePath();
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // INPUT HANDLING
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ── Input handling ────────────────────────────────────────────────────────────
 
   const SWIPE_THRESHOLD=22;
 
@@ -2290,36 +2751,48 @@
     ensureAudio();
     state.pointerId=event.pointerId;
     canvas.setPointerCapture?.(event.pointerId);
-    state.swipeStartX=event.clientX;
-    state.swipeStartLane=state.targetLane;
-    state.targetLane=laneFromX(event.clientX);
+    state.swipeStartX=event.clientX;state.swipeStartLane=state.targetLane;
+    if(save.selectedZone!=="void_network"||state.commitLock<=0){
+      state.targetLane=laneFromX(event.clientX);
+    }
   }
   function handlePointerMove(event){
     if(state.screen!=="playing")return;
     if(state.pointerId!==null&&event.pointerId!==state.pointerId)return;
+    if(save.selectedZone==="void_network"&&state.commitLock>0)return;
     const dx=event.clientX-(state.swipeStartX??event.clientX);
     if(Math.abs(dx)>=SWIPE_THRESHOLD&&state.swipeStartLane!==null){
       const laneDelta=Math.round(dx/state.laneW);
-      state.targetLane=clamp((state.swipeStartLane??2)+laneDelta,0,state.lanes-1);
+      const newLane=clamp((state.swipeStartLane??2)+laneDelta,0,state.lanes-1);
+      if(newLane!==state.targetLane){
+        if(save.selectedZone==="void_network")state.commitLock=0.6;
+        state.targetLane=newLane;
+      }
     } else {
       state.targetLane=laneFromX(event.clientX);
     }
   }
   function handlePointerUp(event){
-    if(event.pointerId===state.pointerId){
-      state.pointerId=null;state.swipeStartX=null;state.swipeStartLane=null;
-    }
+    if(event.pointerId===state.pointerId){state.pointerId=null;state.swipeStartX=null;state.swipeStartLane=null;}
   }
   function handleKey(event){
-    if(event.key==="ArrowLeft"||event.key.toLowerCase()==="a")state.targetLane=clamp(state.targetLane-1,0,state.lanes-1);
-    if(event.key==="ArrowRight"||event.key.toLowerCase()==="d")state.targetLane=clamp(state.targetLane+1,0,state.lanes-1);
+    if(event.key==="ArrowLeft"||event.key.toLowerCase()==="a"){
+      if(save.selectedZone!=="void_network"||state.commitLock<=0){
+        state.targetLane=clamp(state.targetLane-1,0,state.lanes-1);
+        if(save.selectedZone==="void_network")state.commitLock=0.6;
+      }
+    }
+    if(event.key==="ArrowRight"||event.key.toLowerCase()==="d"){
+      if(save.selectedZone!=="void_network"||state.commitLock<=0){
+        state.targetLane=clamp(state.targetLane+1,0,state.lanes-1);
+        if(save.selectedZone==="void_network")state.commitLock=0.6;
+      }
+    }
     if(event.key===" "||event.key==="ArrowUp"||event.key.toLowerCase()==="w"){event.preventDefault();triggerBoost();}
     if(event.key==="Escape")state.screen==="playing"?pauseGame():resumeGame();
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // MAIN LOOP
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ── Main loop ─────────────────────────────────────────────────────────────────
 
   function loop(now){
     const dt=Math.min(0.033,(now-lastFrame)/1000||0);
@@ -2327,17 +2800,14 @@
     update(dt);
     const t=now/1000;
     draw(t);
-    // Combo overlay drawn after main draw (on top of everything)
-    if(state.screen==="playing"&&!state.runEnded)drawComboOverlay(t);
     requestAnimationFrame(loop);
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // EVENT WIRING
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ── Event wiring ──────────────────────────────────────────────────────────────
 
   document.querySelectorAll(".tab-button").forEach(b=>b.addEventListener("click",()=>switchTab(b.dataset.tab)));
-  document.getElementById("playBtn").addEventListener("click",()=>startRun("classic"));
+
+  document.getElementById("playBtn").addEventListener("click",()=>showModifierScreen());
   document.getElementById("dailyBtn").addEventListener("click",()=>startRun("daily"));
   document.getElementById("ghostBtn").addEventListener("click",()=>save.ghosts[save.selectedZone]?startRun("ghost"):toast("Set a ghost first"));
   document.getElementById("challengeBtn").addEventListener("click",loadChallenge);
@@ -2347,24 +2817,30 @@
   document.getElementById("restartBtn").addEventListener("click",()=>startRun(state.mode));
   document.getElementById("gameOverMenuBtn").addEventListener("click",()=>setScreen("menu"));
   document.getElementById("reviveBtn").addEventListener("click",reviveRun);
+  document.getElementById("modifierConfirmBtn").addEventListener("click",()=>{
+    if(!selectedModifierCard)return;
+    state.activeModifier=selectedModifierCard.id;
+    document.getElementById("modifierScreen").classList.remove("active");
+    startRun("classic");
+  });
+  document.getElementById("modifierSkipBtn").addEventListener("click",()=>{
+    state.activeModifier=null;
+    document.getElementById("modifierScreen").classList.remove("active");
+    startRun("classic");
+  });
   els.doubleReward.addEventListener("click",doubleRunReward);
   els.share.addEventListener("click",shareRun);
   els.lucky.addEventListener("click",luckySpin);
   els.doubleLast.addEventListener("click",doubleRunReward);
   els.boost.addEventListener("click",triggerBoost);
-  els.sound.addEventListener("click",()=>{
-    save.sound=!save.sound;
-    if(!save.sound&&audioCtx){audioCtx.close();audioCtx=null;}
-    persist();
-  });
+  els.sound.addEventListener("click",()=>{save.sound=!save.sound;if(!save.sound&&audioCtx){audioCtx.close();audioCtx=null;}persist();});
   els.haptics.addEventListener("click",()=>{save.haptics=!save.haptics;persist();});
 
   const passiveOpts={passive:true};
-  canvas.addEventListener("pointerdown",  handlePointerDown, passiveOpts);
-  canvas.addEventListener("pointermove",  handlePointerMove, passiveOpts);
-  canvas.addEventListener("pointerup",    handlePointerUp,   passiveOpts);
-  canvas.addEventListener("pointercancel",handlePointerUp,   passiveOpts);
-
+  canvas.addEventListener("pointerdown",handlePointerDown,passiveOpts);
+  canvas.addEventListener("pointermove",handlePointerMove,passiveOpts);
+  canvas.addEventListener("pointerup",handlePointerUp,passiveOpts);
+  canvas.addEventListener("pointercancel",handlePointerUp,passiveOpts);
   window.addEventListener("keydown",handleKey);
   window.addEventListener("resize",resize);
   document.addEventListener("visibilitychange",()=>{if(document.hidden&&state.screen==="playing")pauseGame();});
