@@ -3,24 +3,30 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-    <meta name="theme-color" content="#07070c">
+    <meta name="theme-color" content="#0A0B12">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Pulsebreak">
     <title>Pulsebreak</title>
-    <link rel="manifest" href="manifest.webmanifest">
-    <link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
     <main id="app" aria-label="Pulsebreak game">
+
+      <!-- Canvas -->
       <canvas id="gameCanvas" aria-label="Pulsebreak play field"></canvas>
 
+      <!-- Clutch overlay -->
+      <div id="clutchOverlay" aria-hidden="true">
+        <div class="clutch-timer" id="clutchTimer"></div>
+      </div>
+
+      <!-- HUD -->
       <section id="hud" class="hud" aria-live="polite">
-        <div class="hud-group stage-hud">
+        <div class="hud-group">
           <span class="hud-label">Stage</span>
           <strong id="stageText">1</strong>
         </div>
-        <div class="hud-group">
+        <div class="hud-group score-group">
           <span class="hud-label">Score</span>
           <strong id="scoreText">0</strong>
         </div>
@@ -28,82 +34,118 @@
           <span class="hud-label">Best</span>
           <strong id="bestText">0</strong>
         </div>
-        <div class="hud-group compact">
-          <span class="hud-label">Pulse</span>
-          <div class="energy-track" aria-hidden="true"><span id="energyFill"></span></div>
-        </div>
         <button id="pauseBtn" class="icon-button" type="button" aria-label="Pause">II</button>
       </section>
 
+      <!-- Streak display -->
+      <div id="streakDisplay" aria-live="polite">
+        <div class="streak-count" id="streakCount">0</div>
+        <div class="streak-label" id="streakLabel">STREAK</div>
+      </div>
+
+      <!-- Combo display -->
+      <div id="comboDisplay" aria-live="polite">
+        <span class="combo-value combo-x1" id="comboValue">1×</span>
+        <span class="combo-label">COMBO</span>
+      </div>
+
+      <!-- Boss HUD -->
+      <div class="boss-hud" id="bossHud">
+        <div class="boss-name" id="bossName"></div>
+        <div class="boss-phase-track" id="bossPhaseTrack">
+          <div class="boss-phase-pip" id="bossPip1"></div>
+          <div class="boss-phase-pip" id="bossPip2"></div>
+          <div class="boss-phase-pip" id="bossPip3"></div>
+        </div>
+      </div>
+      <div class="boss-weakpoint-flash" id="weakpointFlash" aria-hidden="true"></div>
+
+      <!-- Modifier screen -->
+      <section id="modifierScreen" class="screen" aria-label="Choose run modifier">
+        <div class="modifier-header">
+          <h3>Before you run</h3>
+          <p id="modifierTitle">Choose a modifier</p>
+        </div>
+        <div class="modifier-cards" id="modifierCards">
+          <!-- JS renders 3 .modifier-card elements here -->
+        </div>
+        <div class="modifier-confirm">
+          <button id="modifierConfirmBtn" class="button primary" type="button" disabled>Run</button>
+        </div>
+        <button id="modifierSkipBtn" class="button secondary" type="button" style="margin-top:7px;width:min(420px,100%)">Play without modifier</button>
+      </section>
+
+      <!-- Menu screen -->
       <section id="menuScreen" class="screen active" aria-label="Main menu">
         <div class="panel menu-panel">
+
           <div class="brand-row">
             <img src="assets/app-icon.svg" alt="" class="app-mark">
             <div>
-              <p class="eyebrow">Offline arcade</p>
+              <p class="eyebrow">Signal Ghost</p>
               <h1>Pulsebreak</h1>
             </div>
           </div>
 
           <div class="menu-stats" aria-label="Player stats">
-            <div>
-              <span>Level</span>
-              <strong id="levelText">1</strong>
-            </div>
-            <div>
-              <span>XP</span>
-              <strong id="xpText">0</strong>
-            </div>
-            <div>
-              <span>Best</span>
-              <strong id="menuBest">0</strong>
-            </div>
-            <div>
-              <span>Coins</span>
-              <strong id="coinText">0</strong>
-            </div>
-            <div>
-              <span>Cores</span>
-              <strong id="coreText">0</strong>
-            </div>
-            <div>
-              <span>Runs</span>
-              <strong id="runText">0</strong>
-            </div>
+            <div><span>Level</span><strong id="levelText">1</strong></div>
+            <div><span>Best</span><strong id="menuBest">0</strong></div>
+            <div><span>Coins</span><strong id="coinText">0</strong></div>
+            <div><span>Cores</span><strong id="coreText">0</strong></div>
+            <div><span>Runs</span><strong id="runText">0</strong></div>
+            <div><span>XP</span><strong id="xpText">0/0</strong></div>
           </div>
 
           <div class="tab-bar" role="tablist" aria-label="Pulsebreak systems">
-            <button class="tab-button active" data-tab="run" type="button">Run</button>
-            <button class="tab-button" data-tab="progress" type="button">Progress</button>
-            <button class="tab-button" data-tab="skills" type="button">Skills</button>
-            <button class="tab-button" data-tab="cosmetics" type="button">Style</button>
-            <button class="tab-button" data-tab="social" type="button">Social</button>
+            <button class="tab-button active" data-tab="run"       type="button">Run</button>
+            <button class="tab-button"        data-tab="progress"  type="button">Progress</button>
+            <button class="tab-button"        data-tab="skills"    type="button">Skills</button>
+            <button class="tab-button"        data-tab="cosmetics" type="button">Style</button>
+            <button class="tab-button"        data-tab="social"    type="button">Social</button>
           </div>
 
+          <!-- TAB: Run -->
           <div id="tabRun" class="tab-page active">
             <div class="action-stack">
-              <button id="playBtn" class="button primary" type="button">Play</button>
+              <button id="playBtn"  class="button primary"   type="button">Play</button>
               <button id="dailyBtn" class="button secondary" type="button">Daily Run</button>
               <button id="ghostBtn" class="button secondary" type="button">Ghost Run</button>
             </div>
-
             <div class="menu-block">
               <div class="block-title">Zones</div>
               <div id="zoneGrid" class="zone-grid"></div>
             </div>
-
             <div class="menu-block">
               <div class="block-title">Missions</div>
               <div id="missionList" class="mission-list"></div>
             </div>
-
             <div class="menu-block">
               <div class="block-title">Today</div>
               <div id="dailyPanel" class="daily-panel"></div>
             </div>
+            <div class="menu-block">
+              <div class="block-title">Circuit</div>
+              <div class="circuit-panel" id="circuitPanel">
+                <div class="circuit-header">
+                  <span class="circuit-title">28-Day Circuit</span>
+                  <span class="circuit-points" id="circuitPoints">0 SP</span>
+                </div>
+                <div class="circuit-track">
+                  <div class="circuit-fill" id="circuitFill" style="width:0%"></div>
+                </div>
+                <div class="circuit-milestones" id="circuitMilestones"></div>
+              </div>
+            </div>
           </div>
 
+          <!-- TAB: Progress -->
           <div id="tabProgress" class="tab-page">
+            <div class="menu-block">
+              <div class="block-title">Season Track</div>
+              <div class="season-track-wrapper">
+                <div class="season-track" id="seasonTrack"></div>
+              </div>
+            </div>
             <div class="menu-block">
               <div class="block-title">Account Rewards</div>
               <div id="levelPanel" class="system-list"></div>
@@ -114,35 +156,55 @@
             </div>
           </div>
 
+          <!-- TAB: Skills -->
           <div id="tabSkills" class="tab-page">
             <div class="menu-block">
-              <div class="block-title">Skill Tree</div>
-              <div id="skillTree" class="skill-tree"></div>
+              <div class="skill-archetype-section archetype-ghost">
+                <div class="skill-archetype-header">
+                  <div class="skill-archetype-dot"></div>
+                  <span class="skill-archetype-name">Ghost</span>
+                  <span class="skill-archetype-desc">Near-miss specialist</span>
+                </div>
+                <div id="skillTreeGhost" class="skill-tree"></div>
+              </div>
+              <div class="skill-archetype-section archetype-breaker">
+                <div class="skill-archetype-header">
+                  <div class="skill-archetype-dot"></div>
+                  <span class="skill-archetype-name">Breaker</span>
+                  <span class="skill-archetype-desc">Boost chaser</span>
+                </div>
+                <div id="skillTreeBreaker" class="skill-tree"></div>
+              </div>
+              <div class="skill-archetype-section archetype-surgeon">
+                <div class="skill-archetype-header">
+                  <div class="skill-archetype-dot"></div>
+                  <span class="skill-archetype-name">Surgeon</span>
+                  <span class="skill-archetype-desc">Precision scorer</span>
+                </div>
+                <div id="skillTreeSurgeon" class="skill-tree"></div>
+              </div>
             </div>
           </div>
 
+          <!-- TAB: Cosmetics -->
           <div id="tabCosmetics" class="tab-page">
+            <div class="menu-block"><div class="block-title">Skins</div><div id="skinGrid" class="skin-grid"></div></div>
+            <div class="menu-block"><div class="block-title">Trails</div><div id="trailGrid" class="skin-grid"></div></div>
+            <div class="menu-block"><div class="block-title">Boost Effects</div><div id="boostGrid" class="skin-grid"></div></div>
             <div class="menu-block">
-              <div class="block-title">Skins</div>
-              <div id="skinGrid" class="skin-grid"></div>
-            </div>
-            <div class="menu-block">
-              <div class="block-title">Trails</div>
-              <div id="trailGrid" class="skin-grid"></div>
-            </div>
-            <div class="menu-block">
-              <div class="block-title">Boost Effects</div>
-              <div id="boostGrid" class="skin-grid"></div>
-            </div>
-            <div class="menu-block">
-              <div class="block-title">Menu Themes & Sound Packs</div>
+              <div class="block-title">Themes &amp; Sound</div>
               <div id="extraCosmetics" class="system-list"></div>
             </div>
           </div>
 
+          <!-- TAB: Social -->
           <div id="tabSocial" class="tab-page">
             <div class="menu-block">
-              <div class="block-title">Ghosts & Challenges</div>
+              <div class="block-title">Signal Archive</div>
+              <div class="archive-panel" id="archivePanel"></div>
+            </div>
+            <div class="menu-block">
+              <div class="block-title">Ghosts &amp; Challenges</div>
               <div id="socialPanel" class="system-list"></div>
             </div>
             <div class="challenge-row">
@@ -152,61 +214,76 @@
           </div>
 
           <div class="settings-row">
-            <button id="luckyBtn" class="toggle-button" type="button">Lucky Spin</button>
-            <button id="doubleBtn" class="toggle-button" type="button">Double Last</button>
-            <button id="soundBtn" class="toggle-button" type="button">Sound On</button>
+            <button id="luckyBtn"   class="toggle-button" type="button">Lucky Spin</button>
+            <button id="doubleBtn"  class="toggle-button" type="button">Double Last</button>
+            <button id="soundBtn"   class="toggle-button" type="button">Sound On</button>
             <button id="hapticsBtn" class="toggle-button" type="button">Haptics On</button>
           </div>
+
         </div>
       </section>
 
+      <!-- Pause screen -->
       <section id="pauseScreen" class="screen" aria-label="Paused">
         <div class="panel tight-panel">
           <p class="eyebrow">Paused</p>
           <h2>Hold the line</h2>
           <div class="action-stack">
-            <button id="resumeBtn" class="button primary" type="button">Resume</button>
+            <button id="resumeBtn"    class="button primary"   type="button">Resume</button>
             <button id="pauseMenuBtn" class="button secondary" type="button">Menu</button>
           </div>
         </div>
       </section>
 
+      <!-- Game over screen -->
       <section id="gameOverScreen" class="screen" aria-label="Run complete">
         <div class="panel tight-panel">
           <p id="runModeText" class="eyebrow">Run complete</p>
           <h2 id="finalScore">0</h2>
-          <div class="result-grid">
+          <div class="personal-best-flag" id="personalBestFlag">NEW BEST</div>
+          <div class="so-close" id="soClose"></div>
+          <div class="result-streak-highlight" id="resultStreakHighlight"></div>
+          <div class="coins-animation-stage" id="coinsStage" aria-hidden="true"></div>
+          <div class="result-grid result-sequence" id="resultGrid">
             <div><span>Coins</span><strong id="earnedCoins">0</strong></div>
             <div><span>Shards</span><strong id="finalShards">0</strong></div>
-            <div><span>Combo</span><strong id="finalCombo">1x</strong></div>
+            <div><span>Combo</span><strong id="finalCombo">1×</strong></div>
             <div><span>Stage</span><strong id="finalStage">1</strong></div>
             <div><span>XP</span><strong id="finalXp">0</strong></div>
             <div><span>Highlight</span><strong id="finalMoment">Run</strong></div>
           </div>
           <div class="action-stack">
-            <button id="restartBtn" class="button primary" type="button">Run It Back</button>
-            <button id="reviveBtn" class="button reward" type="button">Revive</button>
-            <button id="doubleRewardBtn" class="button reward" type="button">Double Rewards</button>
-            <button id="shareBtn" class="button secondary" type="button">Share Card</button>
+            <button id="restartBtn"      class="button primary"   type="button">Run It Back</button>
+            <button id="reviveBtn"       class="button reward"    type="button">Revive</button>
+            <button id="doubleRewardBtn" class="button reward"    type="button">Double Rewards</button>
+            <button id="shareBtn"        class="button secondary" type="button">Share Card</button>
             <button id="gameOverMenuBtn" class="button secondary" type="button">Menu</button>
           </div>
         </div>
       </section>
 
+      <!-- Boost button with SVG ring -->
       <button id="boostBtn" class="boost-button" type="button" aria-label="Trigger pulse boost">
-        <span>Boost</span>
+        <svg id="boostRing" viewBox="0 0 96 96" aria-hidden="true">
+          <circle id="boostRingTrack" cx="48" cy="48" r="44"/>
+          <circle id="boostRingFill"  cx="48" cy="48" r="44"/>
+        </svg>
+        <span class="boost-button-inner">Boost</span>
       </button>
 
-      <section id="toast" class="toast" aria-live="polite"></section>
+      <!-- Toast -->
+      <div id="toast" class="toast" aria-live="polite"></div>
 
+      <!-- Ad modal -->
       <section id="adModal" class="ad-modal" aria-hidden="true">
         <div class="ad-box" role="dialog" aria-modal="true" aria-labelledby="adTitle">
-          <p class="eyebrow">Preview ad</p>
-          <h2 id="adTitle">Sponsored break</h2>
+          <p class="eyebrow">Sponsored break</p>
+          <h2 id="adTitle">Watch to continue</h2>
           <div class="ad-meter" aria-hidden="true"><span id="adMeterFill"></span></div>
           <button id="adDoneBtn" class="button primary" type="button" disabled>Continue</button>
         </div>
       </section>
+
     </main>
 
     <script src="game.js"></script>
