@@ -300,7 +300,7 @@
   };
 
   const save  = loadSave();
-  const state = {
+ const state = {
     screen:"menu",mode:"classic",lanes:5,dpr:1,
     w:0,h:0,trackX:0,trackW:0,laneW:0,
     playerY:0,playerX:0,targetLane:2,pointerId:null,
@@ -312,17 +312,52 @@
     spawnTimer:0,stageIndex:1,stageTimer:0,stageHits:0,
     recordTimer:0,inputGhost:[],ghostReplay:null,
     obstacles:[],shards:[],particles:[],sparks:[],messages:[],
-    wakes:[],           // near-miss wake stroke objects
-    fragments:[],       // death fragment objects
-    boostCinema:0,      // countdown for boost cinema effect
-    stageBeam:0,        // countdown for stage-clear beam
-    bossReveal:0,       // countdown for boss reveal
+    wakes:[],
+    fragments:[],
+    boostCinema:0,
+    stageBeam:0,
+    bossReveal:0,
     bossRevealName:"",
-    glitchTears:[],     // glitch dimension screen tear timers
+    glitchTears:[],
     shake:0,rng:Math.random,seed:0,
+    // ── Near-miss streak ──────────────────────────────────────────────────────
+    nearMissStreak:0,
+    nearMissCleanPassPending:false,
+    // ── Clutch Mode ───────────────────────────────────────────────────────────
+    clutchActive:false,
+    clutchTimer:0,
+    // ── Modifiers ─────────────────────────────────────────────────────────────
+    activeModifier:null,
+    tremorPhase:0,
+    slipstreamTimer:0,
+    nearMissCountMod:0,
+    // ── Zone-specific ─────────────────────────────────────────────────────────
+    commitLock:0,
+    glitchFlashTimer:0,
+    glitchFlashActive:false,
+    heat:0,
+    heatSurge:0,
+    gravityPull:0,
+    // ── Boss ──────────────────────────────────────────────────────────────────
+    bossPhase:0,
+    bossPhaseTimer:0,
+    bossWeakpointActive:false,
+    bossStaggerTimer:0,
+    bossDefeatPhase:0,
+    bossDefeatTimer:0,
+    bossWeakpointCount:0,
+    // ── Pattern rhythm ────────────────────────────────────────────────────────
+    patternBeat:0,
+    spawnDensityMul:1.0,
+    // ── Track materialise ─────────────────────────────────────────────────────
+    trackMaterialise:1.0,
+    // ── Onboarding ────────────────────────────────────────────────────────────
+    onboarding:false,
+    onboardingPhase:0,
+    onboardingTimer:0,
+    comboDecayRate:1.6,
     run:freshRunStats()
   };
-
   // Ambient menu idle ghost
   const menuGhost = { x: 0, lane: 2, time: 0, active: false };
 
