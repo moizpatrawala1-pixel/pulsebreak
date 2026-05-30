@@ -280,6 +280,7 @@
     season:{ level:0, xp:0, hasSeason:false },
     stageDeathCounts:{},
     nearMissTutorialShown:false,
+    starterPackShown:false,
     stats:{
       runs:0,totalScore:0,totalShards:0,totalNearMisses:0,totalBoosts:0,
       hazardsBroken:0,bossesDefeated:0,stagesCleared:0,perfectStages:0,
@@ -292,7 +293,7 @@
   const save  = loadSave();
 
   const state = {
-    screen:"menu",mode:"classic",lanes:5,dpr:1,
+    screen:"boot",mode:"classic",lanes:5,dpr:1,
     w:0,h:0,trackX:0,trackW:0,laneW:0,
     playerY:0,playerX:0,targetLane:2,pointerId:null,
     swipeStartX:null,swipeStartLane:null,
@@ -315,6 +316,7 @@
     patternBeat:0,spawnDensityMul:1.0,trackMaterialise:1.0,
     onboarding:false,onboardingPhase:0,onboardingTimer:0,
     comboDecayRate:1.6,
+    teachShownThisRun:false,
     run:freshRunStats()
   };
 
@@ -324,7 +326,471 @@
   let toastTimer= 0;
   let selectedModifierCard = null;
 
-  // ── Data helpers ─────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // BOOT SCREEN
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  function initBootScreen() {
+    const bootEl = document.getElementById("bootScreen");
+    const bootCanvas = document.getElementById("bootTrackCanvas");
+    if (!bootCanvas) { finishBoot(); return; }
+
+    // Animate a mini track preview inside the boot canvas
+    const btx = bootCanvas.getContext("2d");
+    const bw = bootCanvas.width;
+    const bh = bootCanvas.height;
+    let bootTime = 0;
+    let bootRunning = true;
+    let bootObstacles = [];
+    let bootSpawnTimer = 0.6;
+    let bootPlayerX = bw / 2;
+    let bootTargetLane = 2;
+    const bootLanes = 5;
+    const bootLaneW = bw / bootLanes;
+    const bootSpeed = 260;
+
+    function bootLaneCenter(lane) {
+      return bootLaneW * (lane + 0.5);
+    }
+
+    function bootLoop(now) {
+      if (!bootRunning) return;
+      const dt = 0.016;
+      bootTime += dt;
+
+      // Auto-steer toward center with gentle weaving
+      const targetLane = clamp(Math.round(2 + Math.sin(bootTime * 0.6) * 1.6), 0, 4);
+      bootTargetLane = targetLane;
+      bootPlayerX += (bootLaneCenter(bootTargetLane) - bootPlayerX) * 0.08;
+
+      // Spawn obstacles
+      bootSpawnTimer -= dt;
+      if (bootSpawnTimer <= 0) {
+        const gap = Math.floor(Math.random() * bootLanes);
+        const lanes = [];
+        for (let i = 0; i < bootLanes; i++) if (i !== gap) lanes.push(i);
+        bootObstacles.push({ lanes, y: -20 });
+        bootSpawnTimer = 0.7 + Math.random() * 0.3;
+      }
+      bootObstacles.forEach(ob => { ob.y += bootSpeed * dt; });
+      bootObstacles = bootObstacles.filter(ob => ob.y < bh + 40);
+
+      // Draw
+      btx.fillStyle = "#080910";
+      btx.fillRect(0, 0, bw, bh);
+
+      // Lane lines
+      btx.strokeStyle = "rgba(255,255,255,0.08)";
+      btx.lineWidth = 1;
+      btx.setLineDash([6, 12]);
+      btx.lineDashOffset = -(bootTime * bootSpeed * 0.05);
+      for (let i = 1; i < bootLanes; i++) {
+        const lx = i * bootLaneW;
+        btx.beginPath(); btx.moveTo(lx, 0); btx.lineTo(lx, bh); btx.stroke();
+      }
+      btx.setLineDash([]);
+
+      // Obstacles
+      for (const ob of bootObstacles) {
+        for (const lane of ob.lanes) {
+          btx.fillStyle = "#E8344A";
+          const ox = lane * bootLaneW + 4;
+          const ow = bootLaneW - 8;
+          btx.beginPath();
+          btx.roundRect(ox, ob.y - 12, ow, 20, 4);
+          btx.fill();
+          btx.fillStyle = "#FF8C42";
+          btx.globalAlpha = 0.7;
+          btx.fillRect(ox + 3, ob.y - 12, ow - 6, 3);
+          btx.globalAlpha = 1;
+        }
+      }
+
+      // Near-miss wake strokes
+      for (const ob of bootObstacles) {
+        const playerLane = Math.round((bootPlayerX - bootLaneW / 2) / bootLaneW);
+        const adj = ob.lanes.filter(l => Math.abs(l - playerLane) === 1);
+        if (adj.length && Math.abs(ob.y - bh * 0.75) < 30) {
+          const side = adj[0] > playerLane ? 1 : -1;
+          const wakeGrad = btx.createLinearGradient(bootPlayerX, bh * 0.75, bootPlayerX + side * 30, bh * 0.75 - 50);
+          wakeGrad.addColorStop(0, "rgba(200,240,255,0.8)");
+          wakeGrad.addColorStop(1, "rgba(200,240,255,0)");
+          btx.strokeStyle = wakeGrad;
+          btx.lineWidth = 12;
+          btx.lineCap = "round";
+          btx.beginPath();
+          btx.moveTo(bootPlayerX, bh * 0.75);
+          btx.quadraticCurveTo(bootPlayerX + side * 20, bh * 0.75 - 25, bootPlayerX + side * 28, bh * 0.75 - 48);
+          btx.stroke();
+        }
+      }
+
+      // Player teardrop
+      btx.fillStyle = "#C8F0FF";
+      btx.shadowColor = "#C8F0FF";
+      btx.shadowBlur = 12;
+      btx.beginPath();
+      const py = bh * 0.75;
+      btx.moveTo(bootPlayerX, py - 16);
+      btx.bezierCurveTo(bootPlayerX + 9, py - 6, bootPlayerX + 7, py + 6, bootPlayerX, py + 14);
+      btx.bezierCurveTo(bootPlayerX - 7, py + 6, bootPlayerX - 9, py - 6, bootPlayerX, py - 16);
+      btx.fill();
+      btx.shadowBlur = 0;
+
+      requestAnimationFrame(bootLoop);
+    }
+    requestAnimationFrame(bootLoop);
+
+    // Dismiss boot screen on tap/click/key
+    function dismissBoot() {
+      bootRunning = false;
+      bootEl.classList.add("done");
+      setTimeout(finishBoot, 450);
+      bootEl.removeEventListener("click", dismissBoot);
+      window.removeEventListener("keydown", dismissBoot);
+    }
+    bootEl.addEventListener("click", dismissBoot);
+    window.addEventListener("keydown", dismissBoot);
+
+    // Auto-dismiss after 4s if user hasn't tapped
+    setTimeout(() => {
+      if (bootRunning) dismissBoot();
+    }, 4000);
+  }
+
+  function finishBoot() {
+    state.screen = "menu";
+    document.getElementById("bootScreen").style.display = "none";
+    document.getElementById("menuScreen").classList.add("active");
+    updateMenu();
+    menuGhost.active = true;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // NEAR-MISS TEACH OVERLAY
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  let teachFreezeTimer = 0;
+  let teachFreezePending = false;
+
+  function triggerNearMissTeach() {
+    if (save.nearMissTutorialShown) return;
+    if (state.teachShownThisRun) return;
+    state.teachShownThisRun = true;
+    save.nearMissTutorialShown = true;
+
+    // Pause game briefly
+    teachFreezePending = true;
+    teachFreezeTimer = 0.45;
+
+    const teachEl = document.getElementById("nearMissTeach");
+    teachEl.classList.add("visible");
+
+    setTimeout(() => {
+      teachEl.classList.remove("visible");
+    }, 1800);
+
+    // Haptic + sound
+    vibrate([20, 30, 20]);
+    playSound("shard");
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // PERSONAL BEST FLASH
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  function firePbFlash() {
+    const el = document.getElementById("pbFlash");
+    el.classList.remove("fire");
+    // Force reflow
+    void el.offsetWidth;
+    el.classList.add("fire");
+    setTimeout(() => el.classList.remove("fire"), 750);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // LEADERBOARD MINI
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  // Deterministic fake rivals seeded from today's date + zone
+  function buildLeaderboard() {
+    const zone = currentZone();
+    const zoneLabel = document.getElementById("leaderboardZoneLabel");
+    if (zoneLabel) zoneLabel.textContent = zone.name;
+
+    const seed = hashString(`lb-${dayKey()}-${save.selectedZone}`);
+    const rng = mulberry32(seed);
+
+    const RIVAL_NAMES = ["SynthRacer","NullByte","GhostLane","VoidKing","PulseAce",
+      "NeonGhost","SignalX","BreakRun","CircuitK","ZeroNode"];
+
+    // Generate 4 fake rivals with scores around the player's best
+    const playerBest = save.best || 0;
+    const rivals = RIVAL_NAMES.slice(0, 4).map((name, i) => {
+      const base = Math.max(500, playerBest * (0.7 + rng() * 0.6) + rng() * 2000);
+      return { name, score: Math.floor(base), isYou: false };
+    });
+
+    // Insert player
+    const allEntries = [...rivals, { name: "YOU", score: playerBest, isYou: true }];
+    allEntries.sort((a, b) => b.score - a.score);
+
+    const container = document.getElementById("leaderboardRows");
+    if (!container) return;
+    container.replaceChildren();
+
+    const rankLabels = ["gold", "silver", "bronze", "", ""];
+    allEntries.slice(0, 5).forEach((entry, i) => {
+      const row = document.createElement("div");
+      row.className = "leaderboard-row";
+      const rankClass = rankLabels[i] ? ` ${rankLabels[i]}` : "";
+      row.innerHTML = `
+        <span class="leaderboard-rank${rankClass}">${i + 1}</span>
+        <span class="leaderboard-name${entry.isYou ? " you" : ""}">${entry.name}</span>
+        <span class="leaderboard-score">${format(entry.score)}</span>
+      `;
+      container.append(row);
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // STARTER PACK MODAL
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  function maybeShowStarterPack() {
+    if (save.starterPackShown) return;
+    if (save.runs > 1) return; // Only after very first run
+    save.starterPackShown = true;
+    persist();
+
+    setTimeout(() => {
+      const modal = document.getElementById("starterPackModal");
+      modal.classList.add("active");
+      modal.setAttribute("aria-hidden", "false");
+    }, 2400); // After result sequence settles
+  }
+
+  function dismissStarterPack() {
+    const modal = document.getElementById("starterPackModal");
+    modal.classList.remove("active");
+    modal.setAttribute("aria-hidden", "true");
+  }
+
+  function buyStarterPack() {
+    // IAP stub — in production wire to your payment provider
+    toast("Opening payment…");
+    // Simulate successful purchase for demo
+    setTimeout(() => {
+      save.coins += 5000;
+      save.cores += 10;
+      unlockRandomSkin("Rare");
+      toast("Starter Pack unlocked!");
+      playSound("buy");
+      persist();
+      updateMenu();
+      dismissStarterPack();
+    }, 800);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // SHARE CARD — renders a real canvas PNG
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  function shareRun() {
+    if (!save.lastRun) return toast("No run to share");
+    renderShareCard(save.lastRun);
+    document.getElementById("shareCardModal").classList.add("active");
+    document.getElementById("shareCardModal").setAttribute("aria-hidden", "false");
+    save.stats.shares += 1;
+    updateAchievements();
+    persist();
+  }
+
+  function renderShareCard(run) {
+    const sc = document.getElementById("shareCardCanvas");
+    if (!sc) return;
+    const c = sc.getContext("2d");
+    const W = sc.width;   // 760
+    const H = sc.height;  // 400
+
+    // Background
+    c.fillStyle = "#080910";
+    c.fillRect(0, 0, W, H);
+
+    // Zone color gradient accent
+    const zone = ZONES.find(z => z.id === (run.zone || save.selectedZone)) || ZONES[0];
+    const grad = c.createLinearGradient(0, 0, W, H);
+    grad.addColorStop(0, zone.color + "22");
+    grad.addColorStop(1, "#080910");
+    c.fillStyle = grad;
+    c.fillRect(0, 0, W, H);
+
+    // Left cyan accent bar
+    c.fillStyle = zone.color;
+    c.fillRect(0, 0, 4, H);
+
+    // Score (huge)
+    c.fillStyle = "#EDF0F7";
+    c.font = "700 96px 'Space Grotesk', sans-serif";
+    c.textAlign = "left";
+    c.textBaseline = "top";
+    c.fillText(format(run.score), 40, 48);
+
+    // "PULSEBREAK" watermark top-right
+    c.fillStyle = zone.color;
+    c.font = "700 13px 'DM Mono', monospace";
+    c.textAlign = "right";
+    c.fillText("PULSEBREAK", W - 32, 32);
+    c.fillStyle = "#7A8AA8";
+    c.font = "400 11px 'DM Mono', monospace";
+    c.fillText("Signal Ghost", W - 32, 50);
+
+    // Zone pill
+    c.fillStyle = zone.color + "22";
+    c.beginPath();
+    c.roundRect(40, 160, 140, 28, 14);
+    c.fill();
+    c.fillStyle = zone.color;
+    c.font = "700 11px 'DM Mono', monospace";
+    c.textAlign = "left";
+    c.fillText(zone.name.toUpperCase(), 56, 179);
+
+    // Stats row
+    const stats = [
+      ["STAGE", String(run.stageReached || 1)],
+      ["STREAK", String(run.nearMisses >= 20 ? "UNTOUCHABLE" : run.nearMisses >= 10 ? "GHOST LINE" : run.nearMisses >= 5 ? "RAZOR" : String(run.nearMisses || 0))],
+      ["COMBO", `${run.maxCombo || 1}×`],
+      ["HIGHLIGHT", run.highlight || "Clean Run"],
+    ];
+
+    c.textBaseline = "top";
+    stats.forEach(([label, value], i) => {
+      const col = i % 2 === 0 ? 40 : 420;
+      const row = i < 2 ? 220 : 300;
+      c.fillStyle = "#7A8AA8";
+      c.font = "700 10px 'DM Mono', monospace";
+      c.textAlign = "left";
+      c.fillText(label, col, row);
+      c.fillStyle = "#EDF0F7";
+      c.font = "700 22px 'Space Grotesk', sans-serif";
+      c.fillText(value, col, row + 16);
+    });
+
+    // Modifier badge if present
+    if (run.modifier && run.modifier !== "none") {
+      const mod = MODIFIERS.find(m => m.id === run.modifier);
+      if (mod) {
+        c.fillStyle = "rgba(255,140,66,0.15)";
+        c.beginPath();
+        c.roundRect(40, 370, 200, 22, 11);
+        c.fill();
+        c.fillStyle = "#FF8C42";
+        c.font = "700 10px 'DM Mono', monospace";
+        c.textAlign = "left";
+        c.fillText(`MODIFIER: ${mod.name.toUpperCase()}`, 56, 385);
+      }
+    }
+
+    // Challenge code bottom-right
+    const code = makeChallengeCode();
+    c.fillStyle = "#3A4A6A";
+    c.font = "400 10px 'DM Mono', monospace";
+    c.textAlign = "right";
+    c.fillText(code, W - 32, H - 20);
+
+    // Decorative wake stroke
+    const wg = c.createLinearGradient(W - 280, 80, W - 60, 200);
+    wg.addColorStop(0, zone.color + "00");
+    wg.addColorStop(0.5, zone.color + "44");
+    wg.addColorStop(1, zone.color + "00");
+    c.strokeStyle = wg;
+    c.lineWidth = 28;
+    c.lineCap = "round";
+    c.beginPath();
+    c.moveTo(W - 280, 80);
+    c.quadraticCurveTo(W - 160, 140, W - 60, 200);
+    c.stroke();
+  }
+
+  async function downloadShareCard() {
+    const sc = document.getElementById("shareCardCanvas");
+    if (!sc) return;
+    const blob = await new Promise(res => sc.toBlob(res, "image/png"));
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "pulsebreak-run.png";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  async function nativeShareCard() {
+    const sc = document.getElementById("shareCardCanvas");
+    if (!sc) return;
+    const blob = await new Promise(res => sc.toBlob(res, "image/png"));
+    const file = new File([blob], "pulsebreak-run.png", { type: "image/png" });
+    const shareData = {
+      title: "Pulsebreak",
+      text: `${format(save.lastRun?.score || 0)} · ${save.lastRun?.highlight || "Clean Run"} · Thread the needle.`,
+      files: [file],
+    };
+    if (navigator.canShare && navigator.canShare(shareData)) {
+      try { await navigator.share(shareData); return; } catch {}
+    }
+    // Fallback: copy challenge code
+    copyText(makeChallengeCode(), "Challenge code copied");
+  }
+
+  function dismissShareCard() {
+    document.getElementById("shareCardModal").classList.remove("active");
+    document.getElementById("shareCardModal").setAttribute("aria-hidden", "true");
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // MODIFIER CHALLENGE BANNER (post-run)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  function showModifierChallengeBanner() {
+    const banner = document.getElementById("modifierChallengeBannerResult");
+    if (banner) banner.classList.add("show");
+    const menuBanner = document.getElementById("modifierChallengeBanner");
+    if (menuBanner) menuBanner.classList.add("show");
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // COIN BUNDLES (IAP stubs)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  function initCoinBundles() {
+    const container = document.getElementById("coinBundles");
+    if (!container) return;
+    container.querySelectorAll(".coin-bundle").forEach(el => {
+      el.addEventListener("click", () => {
+        const coins = parseInt(el.dataset.coins || "0");
+        const price = el.dataset.price || "?";
+        // IAP stub
+        toast(`Opening payment for ₹${price}…`);
+        // In production: trigger your IAP flow here
+        // On success: save.coins += coins; persist(); updateMenu(); toast(`${format(coins)} coins added!`);
+      });
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // SEASON PASS BANNER
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  function initSeasonPassBanner() {
+    const banner = document.getElementById("seasonPassBanner");
+    if (!banner) return;
+    banner.addEventListener("click", () => {
+      toast("Opening Season Pass…");
+      // IAP stub: trigger season pass purchase flow
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Data helpers
+  // ─────────────────────────────────────────────────────────────────────────────
 
   function makeCosmetics(prefix, names) {
     return names.map((name, i) => ({
@@ -440,7 +906,9 @@
     }));
   }
 
-  // ── Save/load ─────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Save / load
+  // ─────────────────────────────────────────────────────────────────────────────
 
   function loadSave() {
     let parsed={};
@@ -482,7 +950,9 @@
     };
   }
 
-  // ── Utilities ─────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Utilities
+  // ─────────────────────────────────────────────────────────────────────────────
 
   function dayKey(offset=0){const d=new Date(Date.now()+offset*86400000);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;}
   function weekKey(){const d=new Date(),s=new Date(d.getFullYear(),0,1);return `${d.getFullYear()}-W${String(Math.ceil((((d-s)/86400000)+s.getDay()+1)/7)).padStart(2,"0")}`;}
@@ -554,7 +1024,9 @@
     return w;
   }
 
-  // ── Live systems ──────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Live systems
+  // ─────────────────────────────────────────────────────────────────────────────
 
   function ensureLiveSystems(){ensureLoginState();ensureDailyMissions();ensureWeeklyChallenges();ensureAdDay();}
   function ensureLoginState(){const today=dayKey();if(save.lastLogin===today)return;save.loginStreak=save.lastLogin===dayKey(-1)?save.loginStreak+1:1;save.lastLogin=today;save.dailyClaimed="";}
@@ -578,7 +1050,9 @@
   function canWatchAd(placement){ensureAdDay();const caps={total:20,revive:8,double:5,spin:2,mission:3};return(save.adCounts.total||0)<caps.total&&(save.adCounts[placement]||0)<(caps[placement]||5);}
   function countAd(placement){ensureAdDay();save.adCounts.total=(save.adCounts.total||0)+1;save.adCounts[placement]=(save.adCounts[placement]||0)+1;save.stats.adsWatched=(save.stats.adsWatched||0)+1;}
 
-  // ── Circuit / Season ──────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Circuit / Season
+  // ─────────────────────────────────────────────────────────────────────────────
 
   function ensureCircuitReset(){
     const now=Date.now();
@@ -600,7 +1074,9 @@
     while(save.season.xp>=50&&save.season.level<30){save.season.xp-=50;save.season.level+=1;}
   }
 
-  // ── Layout ────────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Layout
+  // ─────────────────────────────────────────────────────────────────────────────
 
   function resize(){
     state.dpr=Math.min(PERF.dprCap,window.devicePixelRatio||1);
@@ -631,7 +1107,9 @@
     return lane;
   }
 
-  // ── Screen management ─────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Screen management
+  // ─────────────────────────────────────────────────────────────────────────────
 
   function setScreen(screen){
     state.screen=screen;
@@ -658,9 +1136,12 @@
     document.querySelectorAll(".tab-page").forEach(p=>p.classList.toggle("active",p.id===`tab${name[0].toUpperCase()}${name.slice(1)}`));
   }
 
-  // ── Menu rendering ────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Menu rendering
+  // ─────────────────────────────────────────────────────────────────────────────
 
   function updateMenu(){
+    if(state.screen==="boot")return;
     ensureLiveSystems();ensureCircuitReset();
     const baseXp=xpAtLevel(save.level),next=xpForLevel(save.level);
     els.level.textContent=format(save.level);
@@ -674,6 +1155,7 @@
     els.haptics.textContent=save.haptics?"Haptics On":"Haptics Off";
     els.sound.classList.toggle("on",save.sound);
     els.haptics.classList.toggle("on",save.haptics);
+    buildLeaderboard();
     renderZones();renderMissions();renderDailyPanel();renderLevelPanel();
     renderSkillTree();renderAchievements();renderCosmetics();renderSocial();
     renderArchive();renderCircuit();renderSeasonTrack();
@@ -691,7 +1173,7 @@
       button.innerHTML=`<span class="zone-dot" aria-hidden="true"></span><span><span class="skin-name">${zone.name}</span><span class="skin-cost">${unlocked?`${zone.hazard} · best stage ${best}`:`Unlock level ${zone.unlockLevel}`}</span></span>`;
       button.addEventListener("click",()=>{
         if(!unlocked)return toast(`Reach Level ${zone.unlockLevel}`);
-        save.selectedZone=zone.id;persist();toast(zone.name);
+        save.selectedZone=zone.id;persist();toast(zone.name);buildLeaderboard();
       });
       els.zoneGrid.append(button);
     });
@@ -880,7 +1362,10 @@
     }
   }
 
-  // ── Modifier screen ───────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Modifier screen (now post-run optional, not pre-run gate)
+  // Play button goes straight to run. Modifier screen shown as a post-run nudge.
+  // ─────────────────────────────────────────────────────────────────────────────
 
   function showModifierScreen(){
     selectedModifierCard=null;
@@ -937,7 +1422,6 @@
     cardEl.classList.remove("selected");
     if(selectedModifierCard===chosen[idx])selectedModifierCard=null;
     document.getElementById("modifierConfirmBtn").disabled=true;
-    // rewire click
     cardEl.onclick=()=>{
       document.querySelectorAll(".modifier-card").forEach(c=>c.classList.remove("selected"));
       cardEl.classList.add("selected");
@@ -946,7 +1430,9 @@
     };
   }
 
-  // ── Daily / Economy ───────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Daily / Economy
+  // ─────────────────────────────────────────────────────────────────────────────
 
   function claimDailyReward(){
     if(save.dailyClaimed===dayKey())return toast("Already claimed");
@@ -970,7 +1456,9 @@
     unlockCosmetic("skins",locked[Math.floor(Math.random()*locked.length)].id);
   }
 
-  // ── Game state ────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Game state
+  // ─────────────────────────────────────────────────────────────────────────────
 
   function startRun(mode="classic"){
     ensureAudio();
@@ -1002,6 +1490,10 @@
     state.slipstreamTimer=0;state.nearMissCountMod=0;
     state.run=freshRunStats();
     state.comboDecayRate=1.6;
+    state.teachShownThisRun=false;
+
+    // Clear near-miss teach overlay if it was showing
+    document.getElementById("nearMissTeach").classList.remove("visible");
 
     if(mode==="daily")state.seed=hashString(`daily-${dayKey()}-${save.selectedZone}`);
     else if(mode==="ghost"&&save.ghosts[save.selectedZone]){state.seed=save.ghosts[save.selectedZone].seed;state.ghostReplay=save.ghosts[save.selectedZone];}
@@ -1012,7 +1504,6 @@
     state.onboarding=save.runs===0;
     state.onboardingPhase=0;state.onboardingTimer=0;
 
-    // Difficulty recovery
     const deathKey=`${save.selectedZone}_${state.stageIndex}`;
     const consecutiveDeaths=save.stageDeathCounts[deathKey]||0;
     state.spawnDensityMul=consecutiveDeaths>=3?0.92:1.0;
@@ -1033,6 +1524,8 @@
       state.clutchActive=false;
       document.getElementById("app").classList.remove("clutch-active");
     }
+    // Hide near-miss teach if still showing
+    document.getElementById("nearMissTeach").classList.remove("visible");
     spawnDeathFragments();
     const deathKey=`${save.selectedZone}_${state.stageIndex}`;
     save.stageDeathCounts[deathKey]=(save.stageDeathCounts[deathKey]||0)+1;
@@ -1040,6 +1533,8 @@
       finalizeRunRewards();applyRunToSave();updateAchievements();saveGhostIfBest();
       earnCircuitPoints();earnSeasonXp();
       persist();renderResults();runResultSequence();setScreen("gameover");
+      showModifierChallengeBanner();
+      maybeShowStarterPack();
     },1800);
     playSound("crash");vibrate([40,40,80]);
   }
@@ -1056,7 +1551,9 @@
     }
   }
 
-  // ── Rewards / save ────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Rewards / save
+  // ─────────────────────────────────────────────────────────────────────────────
 
   function finalizeRunRewards(){
     const finalScore=Math.floor(state.score);
@@ -1103,7 +1600,6 @@
     if(state.mode==="ghost"&&save.ghosts[save.selectedZone]&&state.run.score>save.ghosts[save.selectedZone].score)save.stats.ghostWins+=1;
     if(state.mode==="challenge"&&save.challenge&&state.run.score>=save.challenge.score){save.stats.challengeWins=(save.stats.challengeWins||0)+1;toast("Challenge beaten");}
 
-    // Archive
     save.archive=save.archive||[];
     save.archive.push({
       score:state.run.score,stage:state.run.stageReached,zone:save.selectedZone,
@@ -1113,7 +1609,6 @@
     save.archive.sort((a,b)=>b.score-a.score);
     save.archive=save.archive.slice(0,10);
 
-    // Reset modifier after run
     state.activeModifier=null;
   }
 
@@ -1185,32 +1680,44 @@
   }
 
   function runResultSequence(){
+    // Reset elements
+    document.getElementById("personalBestFlag").classList.remove("show");
+    document.getElementById("soClose").classList.remove("show","critical");
+    document.getElementById("resultStreakHighlight").textContent="";
+    document.querySelectorAll("#resultGrid > *").forEach(c=>c.classList.remove("revealed"));
+    document.getElementById("restartBtn").classList.remove("result-runback-cta");
+
+    const isNewBest = state.run.score >= save.best;
+
     const sequence=[
-      [0,()=>{els.finalScore.textContent=format(state.run.score);}],
+      [0,  ()=>{ els.finalScore.textContent=format(state.run.score); }],
       [200,()=>{
-        if(state.run.score>=save.best)document.getElementById("personalBestFlag").classList.add("show");
+        if(isNewBest){
+          document.getElementById("personalBestFlag").classList.add("show");
+          firePbFlash();
+        }
       }],
       [400,()=>{
         const gap=save.best-state.run.score;
         const pct=save.best>0?state.run.score/save.best:0;
         const soCloseEl=document.getElementById("soClose");
-        soCloseEl.classList.remove("show","critical");
-        if(state.run.score>save.best){/* handled by PB flag */}
-        else if(pct>=0.97){
-          soCloseEl.textContent=`SO CLOSE — ${format(gap)} points away`;
-          soCloseEl.classList.add("show","critical");
-        } else if(pct>=0.92){
-          soCloseEl.textContent=`${format(gap)} points from your best`;
-          soCloseEl.classList.add("show");
+        if(!isNewBest){
+          if(pct>=0.97){
+            soCloseEl.textContent=`SO CLOSE — ${format(gap)} points away`;
+            soCloseEl.classList.add("show","critical");
+          } else if(pct>=0.92){
+            soCloseEl.textContent=`${format(gap)} points from your best`;
+            soCloseEl.classList.add("show");
+          }
         }
       }],
       [600,()=>{
         const el=document.getElementById("resultStreakHighlight");
         if(state.nearMissStreak>=3){el.textContent=`Best streak: ${state.nearMissStreak} — ${getStreakLabel(state.nearMissStreak)}`;}
       }],
-      [800,()=>{spawnCoinAnimation(state.run.earnedCoins);}],
-      [1000,()=>{revealResultGrid();}],
-      [2200,()=>{document.getElementById("restartBtn").classList.add("result-runback-cta");}],
+      [800,()=>{ spawnCoinAnimation(state.run.earnedCoins); }],
+      [1000,()=>{ revealResultGrid(); }],
+      [2200,()=>{ document.getElementById("restartBtn").classList.add("result-runback-cta"); }],
     ];
     sequence.forEach(([delay,fn])=>setTimeout(fn,delay));
   }
@@ -1280,7 +1787,9 @@
     playSound("buy");persist();
   }
 
-  // ── Boost ─────────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Boost
+  // ─────────────────────────────────────────────────────────────────────────────
 
   function triggerBoost(){
     if(state.screen!=="playing"||state.energy<100)return;
@@ -1299,7 +1808,9 @@
     updateBoostRing();
   }
 
-  // ── Obstacle spawning ─────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Obstacle spawning
+  // ─────────────────────────────────────────────────────────────────────────────
 
   function pickObstacleType(stage){
     if(state.onboarding){
@@ -1325,7 +1836,6 @@
   function spawnPattern(stage){
     if(state.spawnDensityMul<1&&state.rng()>state.spawnDensityMul)return;
 
-    // Pattern beat: 0-2 tension, 3 relief
     state.patternBeat=(state.patternBeat+1)%4;
 
     if(stage.kind==="boss"){
@@ -1334,7 +1844,6 @@
     }
 
     if(state.patternBeat===3){
-      // Relief beat: spawn shard line only
       const lane=Math.floor(state.rng()*state.lanes);
       for(let i=0;i<3;i++)spawnShard(lane,-60-i*55);
       return;
@@ -1422,13 +1931,8 @@
   }
 
   function spawnGate(isWeakpoint){
-    // Two obstacles with exactly 1 empty lane between them
     const pairs=[[0,2],[1,3],[2,4],[0,3],[1,4]];
     const pair=pairs[Math.floor(state.rng()*pairs.length)];
-    const allBlocked=[];
-    pair.forEach(p=>{
-      for(let i=p;i<p+1;i++)allBlocked.push(i);
-    });
     const gapLane=Math.floor((pair[0]+pair[1])/2);
     const ob={type:"gate",lanes:[pair[0],pair[1]],y:-44,h:30,nearMissCredit:false,passed:false,hit:false,elite:false,
       gapLane,gapHighlightTimer:0.2,isWeakpoint};
@@ -1464,7 +1968,9 @@
     state.shards.push({lane,y,pulse:state.rng()*Math.PI*2,value:rare?3:state.overdrive>0?2:1,rare});
   }
 
-  // ── Obstacle update ───────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Obstacle update
+  // ─────────────────────────────────────────────────────────────────────────────
 
   function updateObstacles(dt){
     const playerLane=laneFromX(state.playerX);
@@ -1473,11 +1979,9 @@
     let nearMissThisFrame=false;
 
     for(const ob of state.obstacles){
-      // Type-specific per-frame updates
       if(ob.type==="gravity_well"){
         ob.age+=dt;
         if(ob.age>=ob.maxAge)ob.hit=true;
-        // Gravity pull applied in update()
         continue;
       }
       if(ob.type==="drift"){
@@ -1512,13 +2016,11 @@
       if(ob.type==="gate"&&ob.gapHighlightTimer>0)ob.gapHighlightTimer-=dt;
 
       if(state.bossStaggerTimer>0){
-        // Obstacles freeze during stagger
         continue;
       }
 
       ob.y+=state.speed*dt;
 
-      // Near miss / passed detection
       if(!ob.passed&&ob.y>state.playerY+38){
         ob.passed=true;
         if(ob.type==="gravity_well")continue;
@@ -1531,7 +2033,6 @@
         if(adjacentLanes.length>0&&withinWindow&&!ob.nearMissCredit&&!inLane){
           ob.nearMissCredit=true;
           nearMissThisFrame=true;
-          // Precision modifier check
           let distOk=true;
           if(state.activeModifier==="precision"){
             const closestLane=adjacentLanes.reduce((prev,l)=>Math.abs(laneCenter(l)-state.playerX)<Math.abs(laneCenter(prev)-state.playerX)?l:prev,adjacentLanes[0]);
@@ -1547,7 +2048,6 @@
       }
     }
 
-    // Apply clean pass / streak logic
     if(cleanPassDetected&&!nearMissThisFrame&&state.nearMissStreak>0){
       state.nearMissStreak=0;
       updateStreakHud();
@@ -1557,13 +2057,11 @@
         document.getElementById("app").classList.remove("clutch-active");
         state.run.viralMoments++;
       }
-      // Pulse Nexus heat increase
       if(save.selectedZone==="pulse_nexus"){
         state.heat=Math.min(100,state.heat+4);
       }
     }
 
-    // Hit detection
     for(const ob of state.obstacles){
       if(ob.hit||ob.passed)continue;
       if(ob.type==="gravity_well")continue;
@@ -1573,7 +2071,6 @@
       }
       if(ob.lanes.includes(playerLane)&&Math.abs(ob.y-state.playerY)<34){
         if(state.clutchActive){
-          // Clutch mode: no shield, run ends
           state.shake=16;endRun();return;
         }
         if(state.overdrive>0&&(!ob.elite||state.overdrive>1.2)||state.invincible>0){
@@ -1601,16 +2098,13 @@
     state.run.nearMisses+=1;
     gainCombo(1);
 
-    // Energy (not for ghost_run modifier)
     if(state.activeModifier!=="ghost_run"){
       const eg=energyGain(4);
       state.energy=Math.min(100,state.energy+eg);
     } else {
-      // ghost_run: score instead
       state.score+=state.combo*80;
     }
 
-    // Boss weakpoint check
     if(ob.isWeakpoint||ob.type==="gate"&&ob.isWeakpoint){
       const mul=state.bossPhase===3?5:3;
       state.energy=Math.min(100,state.energy+energyGain(mul*4));
@@ -1622,7 +2116,6 @@
       }
     }
 
-    // Surgeon perfect_stage flavor: distance check
     const closestLane=adjacentLanes.reduce((prev,l)=>Math.abs(laneCenter(l)-state.playerX)<Math.abs(laneCenter(prev)-state.playerX)?l:prev,adjacentLanes[0]);
     const dist=calcNearMissDistance(playerLane,closestLane);
     if(dist<=10&&bonus("perfectScore")>0){
@@ -1631,13 +2124,10 @@
       addMessage("PERFECT",state.playerX,state.playerY-80,C.perfect);
     }
 
-    // Wake stroke
     spawnWake(playerLane,closestLane);
     spawnLaneFlash(playerLane);
-    if(state.run.nearMisses===1&&state.wakes.length>0)state.wakes[state.wakes.length-1].scale=1.5;
     if(state.run.nearMisses%10===0)markViral("Near Miss Reel");
 
-    // Modifier hooks
     const mod=state.activeModifier;
     if(mod==="slipstream")state.slipstreamTimer=3.0;
     if(mod==="overclock"){
@@ -1645,25 +2135,26 @@
       if(state.nearMissCountMod%10===0)state.overdrive+=1.0;
     }
 
-    // Near miss streak
     state.nearMissStreak++;
     updateStreakHud();
 
-    // Pulse Nexus: near miss reduces heat
     if(save.selectedZone==="pulse_nexus")state.heat=Math.max(0,state.heat-20);
 
-    // Clutch mode activation / extension
+    // Trigger near-miss teach on first near miss ever
+    if(state.run.nearMisses===1){
+      triggerNearMissTeach();
+    }
+
     if(state.nearMissStreak===10&&!state.clutchActive){
       activateClutch();
     } else if(state.nearMissStreak>=10&&state.clutchActive){
       state.clutchTimer=Math.min(18,state.clutchTimer+1.4);
       if(state.nearMissStreak>=20){
-        state.clutchTimer=6; // refresh
+        state.clutchTimer=6;
         state.spawnTimer=Math.max(0,state.spawnTimer)*0.9;
       }
     }
 
-    // Haptics for high streak
     if(state.nearMissStreak>=5)vibrate([10]);
 
     updateBoostRing();
@@ -1693,12 +2184,13 @@
     else if(state.nearMissStreak>=10)streakDisplay.classList.add("streak-state-ghost-line");
     else if(state.nearMissStreak>=5)streakDisplay.classList.add("streak-state-razor");
     else if(state.nearMissStreak>=3)streakDisplay.classList.add("streak-state-threading");
-    // Combo decay rate
     state.comboDecayRate=state.nearMissStreak>=3&&state.nearMissStreak<10?0.8:1.6;
     if(state.activeModifier==="momentum"&&state.overdrive>0)state.comboDecayRate=0;
   }
 
-  // ── Wake strokes ──────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Wake strokes
+  // ─────────────────────────────────────────────────────────────────────────────
 
   function spawnWake(playerLane,obstacleLane){
     const px=laneCenter(playerLane);
@@ -1723,7 +2215,9 @@
 
   function updateWakes(dt){state.wakes=state.wakes.filter(w=>{w.life-=dt;return w.life>0;});}
 
-  // ── Shard update ──────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Shard update
+  // ─────────────────────────────────────────────────────────────────────────────
 
   function updateShards(dt){
     const playerLane=laneFromX(state.playerX);
@@ -1753,7 +2247,9 @@
     }
   }
 
-  // ── Combo ─────────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Combo
+  // ─────────────────────────────────────────────────────────────────────────────
 
   function gainCombo(amount){
     state.combo=Math.min(maxComboCap(),Math.floor(state.combo+amount));state.comboTimer=2.2;
@@ -1765,7 +2261,9 @@
     addMessage(label,state.playerX,state.playerY-76,C.reward);
   }
 
-  // ── Particles / sparks ────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Particles / sparks
+  // ─────────────────────────────────────────────────────────────────────────────
 
   function updateParticles(dt){
     for(const p of state.particles){
@@ -1816,14 +2314,16 @@
     state.particles.push({x:state.playerX,y:state.playerY,vx:0,vy:0,life:0.4,size:80,color:C.ghost,isRing:true,ringR:0,ringMaxR:80});
   }
   function consumeSafety(){
-    if(state.activeModifier==="thin_ice")return false; // thin ice = instant death
+    if(state.activeModifier==="thin_ice")return false;
     if(state.shieldAvailable){state.shieldAvailable=false;return true;}
     if(state.earnedExtraLife){state.earnedExtraLife=false;return true;}
     if(currentStage().kind==="boss"&&bonus("bossGuard")>0&&state.run.shieldHits<bonus("bossGuard"))return true;
     return false;
   }
 
-  // ── Boss system ───────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Boss system
+  // ─────────────────────────────────────────────────────────────────────────────
 
   function initBossStage(stage){
     state.bossPhase=1;state.bossPhaseTimer=0;state.bossWeakpointActive=false;
@@ -1867,7 +2367,6 @@
     }
 
     if(state.bossPhase>=3&&state.bossPhaseTimer>=phaseDurations[3]){
-      // Boss defeat
       state.bossDefeatPhase=1;state.bossDefeatTimer=0;
       document.getElementById("bossHud").classList.remove("visible");
       state.run.bossesDefeated+=1;
@@ -1877,7 +2376,9 @@
     }
   }
 
-  // ── Zone mechanics ────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Zone mechanics
+  // ─────────────────────────────────────────────────────────────────────────────
 
   function updateZoneMechanics(dt){
     const zone=save.selectedZone;
@@ -1896,10 +2397,8 @@
       if(state.glitchFlashTimer>=8){state.glitchFlashTimer=0;state.glitchFlashActive=true;}
       if(state.glitchFlashActive){
         state.glitchFlashTimer>=-0.08?0:state.glitchFlashActive=false;
-        // keep active for 80ms
         if(state.glitchFlashTimer>0.08)state.glitchFlashActive=false;
       }
-      // Glitch tears
       state.glitchTears=state.glitchTears.filter(t=>{t.life-=dt;return t.life>0;});
       if(state.rng()>1-dt*0.4){
         state.glitchTears.push({y:Math.random()*state.h,dx:(Math.random()-0.5)*16,life:0.08+Math.random()*0.06,h:8+Math.random()*10});
@@ -1910,7 +2409,6 @@
       const pull=(state.w/2-state.playerX)*0.008*dt;
       state.gravityPull=pull;
       state.playerX+=pull;
-      // Gravity well obstacles also active
       for(const ob of state.obstacles){
         if(ob.type==="gravity_well"){
           const gp=(state.w/2-state.playerX)*0.008*dt;
@@ -1946,7 +2444,9 @@
     }
   }
 
-  // ── Onboarding ────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Onboarding
+  // ─────────────────────────────────────────────────────────────────────────────
 
   function updateOnboarding(dt){
     if(!state.onboarding)return;
@@ -1958,11 +2458,22 @@
     else if(state.onboardingPhase===4&&state.onboardingTimer>=0){state.onboarding=false;}
   }
 
-  // ── Main update ───────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Main update
+  // ─────────────────────────────────────────────────────────────────────────────
 
   function update(dt){
+    if(state.screen==="boot"){updateParticles(dt);return;}
     if(state.screen==="menu"){updateMenuGhost(dt);updateParticles(dt);return;}
     if(state.screen!=="playing"){updateParticles(dt);updateFragments(dt);return;}
+
+    // Near-miss teach freeze
+    if(teachFreezePending){
+      teachFreezeTimer-=dt;
+      if(teachFreezeTimer<=0)teachFreezePending=false;
+      // Still draw but don't advance game logic
+      return;
+    }
 
     const stage=currentStage();
     const zonePressure=1+ZONES.findIndex(z=>z.id===save.selectedZone)*0.05;
@@ -1994,7 +2505,6 @@
     state.bossReveal=Math.max(0,state.bossReveal-dt);
     if(state.trackMaterialise>0)state.trackMaterialise=Math.max(0,state.trackMaterialise-dt*2);
 
-    // Clutch timer
     if(state.clutchActive){
       state.clutchTimer-=dt;
       document.getElementById("clutchTimer").textContent=`CLUTCH — ${Math.ceil(Math.max(0,state.clutchTimer))}s`;
@@ -2005,10 +2515,8 @@
       }
     }
 
-    // Boss stagger
     if(state.bossStaggerTimer>0)state.bossStaggerTimer=Math.max(0,state.bossStaggerTimer-dt);
 
-    // Boss defeat sequence
     if(state.bossDefeatPhase>0){
       state.bossDefeatTimer+=dt;
       if(state.bossDefeatPhase===1&&state.bossDefeatTimer>=0.4){state.bossDefeatPhase=2;}
@@ -2070,11 +2578,9 @@
       state.energy=Math.min(100,state.energy+energyGain(8));
       addMessage("Perfect",state.w/2,state.h*0.3,C.perfect);
     }
-    // Clear death count
     const deathKey=`${save.selectedZone}_${state.stageIndex}`;
     save.stageDeathCounts[deathKey]=0;
     state.stageIndex+=1;state.stageTimer=0;state.stageHits=0;
-    // Cascade modifier: bonus shard stage
     if(state.activeModifier==="cascade"){
       const cascadeCount=45;
       for(let i=0;i<cascadeCount;i++)spawnShard(Math.floor(state.rng()*state.lanes),-60-i*20);
@@ -2084,7 +2590,9 @@
     addMessage(`Stage ${state.stageIndex}`,state.w/2,state.h*0.25,currentZone().color);
   }
 
-  // ── HUD / boost ring ──────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // HUD / boost ring
+  // ─────────────────────────────────────────────────────────────────────────────
 
   function updateHud(){
     els.stage.textContent=format(state.stageIndex);
@@ -2093,9 +2601,7 @@
     const ready=state.energy>=100;
     els.boost.classList.toggle("ready",ready);
     updateBoostRing();
-    // Streak HUD
     updateStreakHud();
-    // Combo display
     const comboDisplay=document.getElementById("comboDisplay");
     const comboVal=document.getElementById("comboValue");
     comboDisplay.classList.toggle("visible",state.screen==="playing"&&state.combo>1);
@@ -2115,7 +2621,9 @@
     els.boostRingFill.setAttribute("stroke-dasharray",`${dashLen} ${RING_CIRC}`);
   }
 
-  // ── DRAWING ───────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // DRAWING
+  // ─────────────────────────────────────────────────────────────────────────────
 
   function draw(now){
     const inGame=state.screen==="playing"||state.screen==="gameover";
@@ -2219,7 +2727,6 @@
       ctx.fillRect(0,0,state.w,state.h);
     }
     if(zoneId==="pulse_nexus"){
-      // Heat tint
       if(state.heat>40){
         ctx.globalAlpha=(state.heat-40)/200;
         ctx.fillStyle=C.boost;
@@ -2267,7 +2774,6 @@
       ctx.beginPath();ctx.moveTo(lx,mat>0?matY:top);ctx.lineTo(lx,bottom);ctx.stroke();
     }
     ctx.setLineDash([]);
-    // Heat border for Pulse Nexus
     const heatAlpha=save.selectedZone==="pulse_nexus"?Math.max(0.14,(state.heat/100)*0.5):0.14;
     const heatColor=save.selectedZone==="pulse_nexus"&&state.heat>40?C.boost:(state.overdrive>0?C.boost:C.ghost);
     ctx.globalAlpha=state.overdrive>0?0.38:heatAlpha;
@@ -2341,7 +2847,6 @@
             ctx.fillText("×3",ox+ow/2,oy-6);
           }
         } else if(ob.type==="drift"){
-          // Motion blur ghost rects behind
           for(let g=1;g<=3;g++){
             const gox=state.trackX+(ob.laneFloat-ob.driftDir*g*0.25)*state.laneW+8;
             ctx.globalAlpha=obAlpha*(0.15-g*0.04);
@@ -2373,7 +2878,6 @@
           ctx.fillStyle=g2;
           roundRect(ctx,ox,oy,ow,ob.h,6);ctx.fill();
           ctx.fillStyle=C.reward;ctx.globalAlpha=obAlpha*0.72;ctx.fillRect(ox+4,oy,ow-8,3);
-          // Gap lane highlight on spawn
           if(ob.gapHighlightTimer>0){
             const gapX=state.trackX+ob.gapLane*state.laneW;
             ctx.globalAlpha=ob.gapHighlightTimer*0.8;
@@ -2389,7 +2893,6 @@
         ctx.globalAlpha=1;ctx.shadowBlur=0;
       }
 
-      // Mirror connecting line
       if(ob.type==="mirror"&&ob.lanes.length===2){
         const x1=laneCenter(ob.lanes[0]);
         const x2=laneCenter(ob.lanes[1]);
@@ -2467,7 +2970,6 @@
       ctx.globalAlpha=(1-rp)*0.55;ctx.strokeStyle=C.boost;ctx.lineWidth=2;
       ctx.beginPath();ctx.ellipse(0,-20,rw/2,rh/2,0,0,Math.PI*2);ctx.stroke();
     }
-    // Active modifier tag
     if(state.activeModifier){
       ctx.globalAlpha=0.4;ctx.fillStyle=C.muted;
       ctx.font="700 9px 'DM Mono',monospace";ctx.textAlign="center";
@@ -2581,7 +3083,6 @@
     if(state.bossDefeatPhase===0)return;
     ctx.save();
     if(state.bossDefeatPhase===1){
-      // 8 radial beams from player
       for(let i=0;i<8;i++){
         const a=(i/8)*Math.PI*2;
         ctx.strokeStyle=C.perfect;ctx.lineWidth=2;
@@ -2602,7 +3103,6 @@
         ctx.fillText(state.bossRevealName.replace("Boss:","").trim(),state.w/2,state.h*0.3-progress*40);
       }
     } else if(state.bossDefeatPhase===3){
-      // Coin spray handled via DOM; just show combo on screen
       ctx.globalAlpha=0.7;ctx.fillStyle=C.reward;
       ctx.font="800 1.4rem 'DM Mono',monospace";ctx.textAlign="center";
       ctx.fillText(`${Math.floor(state.combo)}× COMBO`,state.w/2,state.h*0.45);
@@ -2619,7 +3119,9 @@
     ctx.restore();
   }
 
-  // ── Canvas utils ──────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Canvas utils
+  // ─────────────────────────────────────────────────────────────────────────────
 
   function roundRect(context,x,y,w,h,r){
     const radius=Math.min(r,Math.abs(w)/2,Math.abs(h)/2);
@@ -2637,7 +3139,9 @@
     context.closePath();
   }
 
-  // ── Toast / Audio / Haptics ───────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Toast / Audio / Haptics
+  // ─────────────────────────────────────────────────────────────────────────────
 
   function toast(text){
     els.toast.textContent=text;els.toast.classList.add("show");
@@ -2665,7 +3169,9 @@
   }
   function vibrate(pattern){if(save.haptics&&navigator.vibrate)navigator.vibrate(pattern);}
 
-  // ── Ad bridge ────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Ad bridge
+  // ─────────────────────────────────────────────────────────────────────────────
 
   const AdBridge={
     async showRewarded(placement){
@@ -2707,7 +3213,9 @@
     });
   }
 
-  // ── Challenge codes ───────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Challenge codes
+  // ─────────────────────────────────────────────────────────────────────────────
 
   function makeChallengeCode(){
     const zone=save.selectedZone.replace(/_/g,"-").toUpperCase().slice(0,10);
@@ -2731,18 +3239,14 @@
     if(!parsed)return toast("Bad challenge code");
     save.challenge=parsed;persist();toast("Challenge loaded");startRun("challenge");
   }
-  function shareRun(){
-    if(!save.lastRun)return toast("No run to share");
-    const text=`Pulsebreak ${format(save.lastRun.score)} · Stage ${save.lastRun.stageReached} · ${save.lastRun.highlight} · ${makeChallengeCode()}`;
-    save.stats.shares+=1;updateAchievements();
-    copyText(text,"Share card copied");persist();
-  }
   function copyText(text,success){
     if(navigator.clipboard?.writeText)navigator.clipboard.writeText(text).then(()=>toast(success)).catch(()=>toast(text));
     else toast(text);
   }
 
-  // ── Input handling ────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Input handling
+  // ─────────────────────────────────────────────────────────────────────────────
 
   const SWIPE_THRESHOLD=22;
 
@@ -2792,7 +3296,9 @@
     if(event.key==="Escape")state.screen==="playing"?pauseGame():resumeGame();
   }
 
-  // ── Main loop ─────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Main loop
+  // ─────────────────────────────────────────────────────────────────────────────
 
   function loop(now){
     const dt=Math.min(0.033,(now-lastFrame)/1000||0);
@@ -2803,11 +3309,14 @@
     requestAnimationFrame(loop);
   }
 
-  // ── Event wiring ──────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Event wiring
+  // ─────────────────────────────────────────────────────────────────────────────
 
   document.querySelectorAll(".tab-button").forEach(b=>b.addEventListener("click",()=>switchTab(b.dataset.tab)));
 
-  document.getElementById("playBtn").addEventListener("click",()=>showModifierScreen());
+  // Play button → straight to run (no pre-run modifier screen)
+  document.getElementById("playBtn").addEventListener("click",()=>startRun("classic"));
   document.getElementById("dailyBtn").addEventListener("click",()=>startRun("daily"));
   document.getElementById("ghostBtn").addEventListener("click",()=>save.ghosts[save.selectedZone]?startRun("ghost"):toast("Set a ghost first"));
   document.getElementById("challengeBtn").addEventListener("click",loadChallenge);
@@ -2817,6 +3326,8 @@
   document.getElementById("restartBtn").addEventListener("click",()=>startRun(state.mode));
   document.getElementById("gameOverMenuBtn").addEventListener("click",()=>setScreen("menu"));
   document.getElementById("reviveBtn").addEventListener("click",reviveRun);
+
+  // Modifier screen — now triggered via post-run banner, not play button
   document.getElementById("modifierConfirmBtn").addEventListener("click",()=>{
     if(!selectedModifierCard)return;
     state.activeModifier=selectedModifierCard.id;
@@ -2828,13 +3339,53 @@
     document.getElementById("modifierScreen").classList.remove("active");
     startRun("classic");
   });
+
+  // Post-run modifier challenge banner
+  const modBannerResult = document.getElementById("modifierChallengeBannerResult");
+  if(modBannerResult){
+    modBannerResult.addEventListener("click",()=>{
+      modBannerResult.classList.remove("show");
+      showModifierScreen();
+    });
+  }
+  const modBannerMenu = document.getElementById("modifierChallengeBanner");
+  if(modBannerMenu){
+    modBannerMenu.addEventListener("click",()=>{
+      modBannerMenu.classList.remove("show");
+      showModifierScreen();
+    });
+  }
+
   els.doubleReward.addEventListener("click",doubleRunReward);
+
+  // Share button → render canvas card
   els.share.addEventListener("click",shareRun);
+
   els.lucky.addEventListener("click",luckySpin);
   els.doubleLast.addEventListener("click",doubleRunReward);
   els.boost.addEventListener("click",triggerBoost);
   els.sound.addEventListener("click",()=>{save.sound=!save.sound;if(!save.sound&&audioCtx){audioCtx.close();audioCtx=null;}persist();});
   els.haptics.addEventListener("click",()=>{save.haptics=!save.haptics;persist();});
+
+  // Starter pack
+  const spBuy = document.getElementById("starterPackBuyBtn");
+  const spDismiss = document.getElementById("starterPackDismissBtn");
+  if(spBuy) spBuy.addEventListener("click",buyStarterPack);
+  if(spDismiss) spDismiss.addEventListener("click",dismissStarterPack);
+
+  // Share card modal
+  const scDownload = document.getElementById("shareCardDownloadBtn");
+  const scShare = document.getElementById("shareCardShareBtn");
+  const scDismiss = document.getElementById("shareCardDismissBtn");
+  if(scDownload) scDownload.addEventListener("click",downloadShareCard);
+  if(scShare)    scShare.addEventListener("click",nativeShareCard);
+  if(scDismiss)  scDismiss.addEventListener("click",dismissShareCard);
+
+  // Season pass banner
+  initSeasonPassBanner();
+
+  // Coin bundles
+  initCoinBundles();
 
   const passiveOpts={passive:true};
   canvas.addEventListener("pointerdown",handlePointerDown,passiveOpts);
@@ -2848,10 +3399,23 @@
   if("serviceWorker"in navigator&&location.protocol.startsWith("http"))
     navigator.serviceWorker.register("sw.js").catch(()=>{});
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Init
+  // ─────────────────────────────────────────────────────────────────────────────
+
   ensureLiveSystems();
   resize();
+
+  // Hide menu initially — boot screen is shown first
+  els.menu.classList.remove("active");
+
   persist();
   updateHud();
-  menuGhost.active=true;
+  menuGhost.active=false;
+
+  // Start the render loop first so boot canvas animates
   requestAnimationFrame(loop);
+
+  // Then kick off boot screen
+  initBootScreen();
 })();
