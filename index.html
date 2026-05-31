@@ -8,9 +8,29 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Pulsebreak">
     <meta name="description" content="Thread the needle. Build the streak. Survive the Clutch.">
+
+    <!-- Open Graph / share card meta -->
+    <meta property="og:title" content="Pulsebreak — Signal Ghost">
+    <meta property="og:description" content="Thread the needle. Build the streak. Survive the Clutch.">
+    <meta property="og:image" content="assets/app-icon.svg">
+    <meta property="og:type" content="website">
+
+    <!-- Favicon / PWA icons -->
+    <link rel="icon" type="image/svg+xml" href="assets/app-icon.svg">
+    <link rel="apple-touch-icon" href="assets/app-icon.svg">
+    <link rel="manifest" href="manifest.json">
+
     <title>Pulsebreak</title>
+
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Space+Grotesk:wght@400;500;600;700;800&display=swap"
+    >
+
+    <!-- Game styles -->
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
@@ -22,7 +42,7 @@
       <canvas id="gameCanvas" aria-label="Pulsebreak play field"></canvas>
 
       <!-- ═══════════════════════════════════════════════════════
-           BOOT SCREEN — first impression, replaces menu-as-landing
+           BOOT SCREEN
            ═══════════════════════════════════════════════════════ -->
       <div id="bootScreen" aria-hidden="true">
         <div class="boot-logo">
@@ -34,7 +54,7 @@
       </div>
 
       <!-- ═══════════════════════════════════════════════════════
-           NEAR-MISS TEACH — fires on first near miss, first run
+           NEAR-MISS TEACH OVERLAY
            ═══════════════════════════════════════════════════════ -->
       <div id="nearMissTeach" aria-live="assertive" role="alert">
         <p class="teach-headline">THREAD<br>THE NEEDLE</p>
@@ -42,7 +62,7 @@
       </div>
 
       <!-- ═══════════════════════════════════════════════════════
-           PERSONAL BEST FLASH — full screen, unmissable
+           PERSONAL BEST FLASH
            ═══════════════════════════════════════════════════════ -->
       <div id="pbFlash" aria-hidden="true"></div>
 
@@ -102,7 +122,7 @@
       <div class="boss-weakpoint-flash" id="weakpointFlash" aria-hidden="true"></div>
 
       <!-- ═══════════════════════════════════════════════════════
-           MODIFIER SCREEN
+           MODIFIER SCREEN (post-run optional flow)
            ═══════════════════════════════════════════════════════ -->
       <section id="modifierScreen" class="screen" aria-label="Choose run modifier">
         <div class="modifier-header">
@@ -110,9 +130,7 @@
           <p id="modifierTitle">Choose a modifier</p>
           <p class="modifier-header-sub">One changes everything. Choose wisely — or skip.</p>
         </div>
-        <div class="modifier-cards" id="modifierCards">
-          <!-- JS renders 3 .modifier-card elements here -->
-        </div>
+        <div class="modifier-cards" id="modifierCards"></div>
         <div class="modifier-confirm">
           <button id="modifierConfirmBtn" class="button primary" type="button" disabled>Run with modifier</button>
         </div>
@@ -121,7 +139,7 @@
       </section>
 
       <!-- ═══════════════════════════════════════════════════════
-           STARTER PACK MODAL — shown once on first run end
+           STARTER PACK MODAL
            ═══════════════════════════════════════════════════════ -->
       <div id="starterPackModal" aria-hidden="true">
         <div class="starter-pack-box" role="dialog" aria-modal="true" aria-labelledby="starterPackTitle">
@@ -156,14 +174,14 @@
       </div>
 
       <!-- ═══════════════════════════════════════════════════════
-           SHARE CARD MODAL — renders a PNG card
+           SHARE CARD MODAL
            ═══════════════════════════════════════════════════════ -->
       <div id="shareCardModal" aria-hidden="true">
         <div class="share-card-box" role="dialog" aria-modal="true" aria-label="Share your run">
           <canvas id="shareCardCanvas" width="760" height="400" aria-hidden="true"></canvas>
           <div class="share-actions">
             <button id="shareCardDownloadBtn" class="button secondary" type="button">Save Image</button>
-            <button id="shareCardShareBtn" class="button primary" type="button">Share</button>
+            <button id="shareCardShareBtn"    class="button primary"   type="button">Share</button>
           </div>
           <button id="shareCardDismissBtn" class="button secondary" type="button"
             style="margin-top:8px;width:100%">Close</button>
@@ -178,7 +196,7 @@
 
           <!-- Brand -->
           <div class="brand-row">
-            <img src="assets/app-icon.svg" alt="" class="app-mark">
+            <img src="assets/app-icon.svg" alt="Pulsebreak icon" class="app-mark">
             <div>
               <p class="eyebrow">Signal Ghost</p>
               <h1>Pulsebreak</h1>
@@ -201,9 +219,7 @@
               <span>Today's Best</span>
               <span id="leaderboardZoneLabel">Neon City</span>
             </div>
-            <div id="leaderboardRows">
-              <!-- JS renders .leaderboard-row elements here -->
-            </div>
+            <div id="leaderboardRows"></div>
           </div>
 
           <!-- Tabs -->
@@ -215,7 +231,7 @@
             <button class="tab-button"        data-tab="social"    role="tab" type="button">Social</button>
           </div>
 
-          <!-- ─── TAB: Run ──────────────────────────────────────── -->
+          <!-- ─── TAB: Run ─────────────────────────────────────── -->
           <div id="tabRun" class="tab-page active" role="tabpanel">
 
             <div class="action-stack">
@@ -224,7 +240,6 @@
               <button id="ghostBtn" class="button secondary" type="button">Ghost Run</button>
             </div>
 
-            <!-- Post-run modifier challenge (hidden until after a run) -->
             <div id="modifierChallengeBanner" class="modifier-challenge-banner">
               Try next run with a modifier? Tap to pick one →
             </div>
@@ -265,7 +280,6 @@
 
             <div class="menu-block">
               <div class="block-title">Season Track</div>
-              <!-- Season pass upsell -->
               <div class="season-pass-banner" id="seasonPassBanner">
                 <div class="season-pass-info">
                   <span class="season-pass-title">Season Pass</span>
@@ -327,7 +341,6 @@
           <!-- ─── TAB: Style ────────────────────────────────────── -->
           <div id="tabCosmetics" class="tab-page" role="tabpanel">
 
-            <!-- Coin bundles / IAP -->
             <div class="menu-block">
               <div class="block-title">Get Coins</div>
               <div class="coin-bundles" id="coinBundles">
@@ -352,7 +365,7 @@
               </div>
             </div>
 
-            <div class="menu-block"><div class="block-title">Skins</div><div id="skinGrid" class="skin-grid"></div></div>
+            <div class="menu-block"><div class="block-title">Skins</div><div id="skinGrid"  class="skin-grid"></div></div>
             <div class="menu-block"><div class="block-title">Trails</div><div id="trailGrid" class="skin-grid"></div></div>
             <div class="menu-block"><div class="block-title">Boost Effects</div><div id="boostGrid" class="skin-grid"></div></div>
             <div class="menu-block">
@@ -417,19 +430,11 @@
           <p id="runModeText" class="eyebrow">Run complete</p>
           <h2 id="finalScore">0</h2>
 
-          <!-- Personal best — large and animated -->
           <div class="personal-best-flag" id="personalBestFlag">✦ NEW BEST</div>
-
-          <!-- So close — animated, critical state for &gt;97% -->
           <div class="so-close" id="soClose"></div>
-
-          <!-- Streak highlight -->
           <div class="result-streak-highlight" id="resultStreakHighlight"></div>
-
-          <!-- Coin animation stage -->
           <div class="coins-animation-stage" id="coinsStage" aria-hidden="true"></div>
 
-          <!-- Result grid — staggered reveal -->
           <div class="result-grid result-sequence" id="resultGrid">
             <div><span>Coins</span><strong id="earnedCoins">0</strong></div>
             <div><span>Shards</span><strong id="finalShards">0</strong></div>
@@ -439,12 +444,10 @@
             <div><span>Highlight</span><strong id="finalMoment">Run</strong></div>
           </div>
 
-          <!-- Post-run modifier challenge nudge -->
           <div id="modifierChallengeBannerResult" class="modifier-challenge-banner">
             Next run: try a modifier for bonus rewards →
           </div>
 
-          <!-- Action buttons -->
           <div class="action-stack">
             <button id="restartBtn"      class="button primary"   type="button">Run It Back</button>
             <button id="reviveBtn"       class="button reward"    type="button">Revive — Watch Ad</button>
@@ -486,6 +489,7 @@
 
     </main><!-- /app -->
 
-    <script src="game.js"></script>
+    <!-- Game script — deferred so DOM is fully parsed first -->
+    <script src="game.js" defer></script>
   </body>
 </html>
